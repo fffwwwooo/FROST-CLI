@@ -655,6 +655,34 @@ function getSelectablePaletteItems(query) {
   });
 }
 
+// ── Smooth Running Shimmer Beam with Glowing Trail ──
+function renderShimmerBeam(width = 16, pos = 0) {
+  const trail = [
+    [20, 45, 90],
+    [30, 80, 160],
+    [56, 139, 253],
+    [100, 185, 255],
+    [240, 246, 252], // Radiant white core
+    [100, 185, 255],
+    [56, 139, 253],
+    [30, 80, 160],
+    [20, 45, 90],
+  ];
+
+  let out = '';
+  for (let i = 0; i < width; i++) {
+    const dist = i - pos;
+    const trailIdx = dist + 4;
+    if (trailIdx >= 0 && trailIdx < trail.length) {
+      const c = trail[trailIdx];
+      out += rgb(c[0], c[1], c[2]) + '■' + OC.reset;
+    } else {
+      out += rgb(30, 35, 42) + '■' + OC.reset;
+    }
+  }
+  return out;
+}
+
 // ── Global Tab Click Tracking Zones (for Mouse Clicks) ──
 let tabZones = [];
 let plusZone = { startX: 0, endX: 0 };
@@ -671,20 +699,19 @@ function renderTabBar(tabs, activeTabIdx) {
     let seg = '';
     if (isAct) {
       seg = ' ● ' + t.title + ' ';
-      tabLine += OC.bgTabActive + OC.textWhite + seg + OC.reset + ' ';
+      tabLine += OC.bgTabActive + ' ● ' + OC.textWhite + t.title + ' ' + OC.reset + ' ';
     } else {
-      seg = '   ' + t.title + ' ';
-      tabLine += OC.textDim + seg + OC.reset + ' ';
+      seg = '   ' + t.title + '  ';
+      tabLine += OC.textDim + seg + OC.reset;
     }
-    curX += seg.length + 1;
+    curX += seg.length;
     tabZones.push({ idx: i, startX, endX: curX });
   }
 
   const plusStart = curX;
-  const plusSeg = ' + ';
+  const plusSeg = '+ ';
   tabLine += OC.bgTabActive + OC.peach + OC.bold + plusSeg + OC.reset;
-  plusZone = { startX: plusStart, endX: plusStart + plusSeg.length + 2 };
-
+  plusZone = { startX: plusStart, endX: plusStart + plusSeg.length + 4 };
   return tabLine;
 }
 
@@ -695,7 +722,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
 
   console.clear();
 
-  // 1. Tab bar at top (clickable [+] and solid ● bullets)
+  // 1. Tab bar at top
   console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
@@ -706,46 +733,30 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   for (const l of logo) console.log(logoPad + l);
 
   // 3. Subtext
-  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION} · Autonomous Agent with Full PC Access${OC.reset}`;
-  const subRawLen = 65;
+  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION}${OC.reset}`;
+  const subRawLen = 32;
   const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRawLen) / 2)));
   console.log('\n' + subPad + subText + '\n');
 
-  // 4. System Status Badges
-  const badgePad = ' '.repeat(Math.max(2, Math.floor((cols - 68) / 2)));
-  console.log(badgePad + OC.green + '●' + OC.textDim + ' AI Core: ' + OC.textWhite + 'Online   ' +
-                         OC.barCyan + '●' + OC.textDim + ' Access: ' + OC.textWhite + 'Full Root   ' +
-                         OC.peach + '●' + OC.textDim + ' Engine: ' + OC.textWhite + 'Autonomous' + OC.reset);
-  console.log('');
-
-  // 5. Quick suggestion pills
+  // 4. Elevated card (Line 2: Model & Status Bar - no FROST at end)
   const cardPad = ' '.repeat(Math.max(2, Math.floor((cols - cardW) / 2)));
-  console.log(cardPad + OC.textDim + '💡 Быстрый старт: ' +
-              OC.textWhite + '"Создай файл index.html на Desktop"' + OC.textDim + ' · ' +
-              OC.textWhite + '"Покажи запущенные процессы"' + OC.reset);
-  console.log('');
-
-  // 6. Elevated card (Line 2: Model & Status Bar)
-  const tagLine = `Autonomous · ${currentModel} ${currentPower} FROST`;
+  const tagLine = `Autonomous · ${currentModel} ${currentPower}`;
   const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));
 
   console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' +
     OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
-    OC.peach + currentPower + ' ' +
-    OC.textDim + 'FROST' + OC.bgCard + l2pad + ' ' + OC.reset);
+    OC.peach + currentPower + OC.bgCard + l2pad + ' ' + OC.reset);
 
-  // 7. Path and shortcuts line
-  const shortCwd = cwd.length > 38 ? '...' + cwd.slice(-35) : cwd;
+  // 5. Path and shortcuts line (clean, short, never wraps!)
+  const shortCwd = cwd.length > 40 ? '...' + cwd.slice(-37) : cwd;
   const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
-                   OC.textMuted + 'tab' + OC.textDim + ' power   ' +
                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
-  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 36));
+  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 28));
   console.log(cardPad + ' ' + OC.textDim + shortCwd + midSpace + keysHint + OC.reset);
-
   console.log('');
 
-  // 8. Footer (solid ● bullets)
+  // 6. Footer (solid ● bullets)
   const footLeft = ' ' + OC.green + '●' + OC.textMuted + ' Full PC Access   ' +
                    OC.accentBlue + '●' + OC.textMuted + ' 1 MCP';
   const footRight = OC.textDim + VERSION + ' ';
@@ -756,12 +767,12 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
 
 // ── Render: OpenCode Chat Screen ──
 function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy) {
-  const cols = process.stdout.columns || 90;
+  const cols = Math.min(process.stdout.columns || 90, 100);
   const cardW = Math.max(60, cols - 6);
 
   console.clear();
 
-  // 1. Tab bar at top (clickable)
+  // 1. Tab bar at top
   console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
@@ -785,19 +796,14 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   const statusLeft = ' ' + BAR + ' ' +
     OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
-    OC.peach + currentPower + ' ' +
-    OC.textDim + 'FROST' + OC.reset;
+    OC.peach + currentPower + OC.reset;
   console.log(statusLeft);
 
-  // 4. Footer (using solid ■ squares instead of broken ▰)
-  const footLeft = isBusy
-    ? ' ' + OC.accentBlue + '■■■■■■■■' + OC.textDim + ' esc interrupt'
-    : ' ' + OC.textDim + 'esc interrupt                 ';
-  const footRight = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
-                    OC.textMuted + 'tab' + OC.textDim + ' power   ' +
-                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
-  const footSpace = ' '.repeat(Math.max(2, cols - 30 - 36));
-  console.log(footLeft + footSpace + footRight + OC.reset);
+  // 4. Footer: when idle, NO esc interrupt! Only right-aligned shortcuts, never wrapping!
+  const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
+                   OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
+  const footSpace = ' '.repeat(Math.max(2, cols - 32));
+  console.log(footSpace + keysHint + OC.reset);
 }
 
 // ── Render: Command Palette Modal ──
@@ -859,7 +865,7 @@ function renderCommandPalette(query, selectedIndex, tabs, activeTabIdx, currentM
   // Below modal: show current state dimmed
   console.log('');
   const dimStatus = OC.textDim + ' ' + BAR + ' ' + OC.textDim +
-    'Autonomous · ' + currentModel + ' ' + currentPower + ' FROST' + OC.reset;
+    'Autonomous · ' + currentModel + ' ' + currentPower + OC.reset;
   console.log(dimStatus);
   const dimFoot = OC.textDim + '                              ' +
     'shift+tab model   ctrl+p commands  ' + OC.reset;
@@ -953,21 +959,12 @@ async function runChat(options = {}) {
     return OC.bgCard + ' ' + BAR + ' ' + OC.textWhite;
   };
 
-  // ── Mouse cleanup handler ──
-  const cleanupMouse = () => {
-    if (isTTY) {
-      try { process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1006l'); } catch {}
-    }
-  };
-  process.on('exit', cleanupMouse);
-
   // ── Show Home Screen ──
   const cwd = process.cwd().replace(/\\/g, '/');
   renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd, tabs, activeTabIdx);
 
   if (isTTY) {
     try { readline.emitKeypressEvents(process.stdin); } catch {}
-    try { process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h'); } catch {}
   }
 
   const rl = readline.createInterface({
@@ -1042,6 +1039,61 @@ async function runChat(options = {}) {
     currentModel = curTab.model;
     currentPowerIdx = curTab.powerIdx;
     refreshCurrentView();
+  };
+
+  // ── Global Mouse Tracker and Stream Interceptor ──
+  const cleanupMouse = () => {
+    if (isTTY) {
+      try { process.stdout.write('\x1b[?1000l\x1b[?1006l'); } catch {}
+    }
+  };
+  process.on('exit', cleanupMouse);
+
+  if (isTTY) {
+    try { readline.emitKeypressEvents(process.stdin); } catch {}
+    try { process.stdout.write('\x1b[?1000h\x1b[?1006h'); } catch {}
+  }
+
+  // Intercept raw stdin data BEFORE readline can mangle mouse SGR sequences into prompt text
+  const origStdinEmit = process.stdin.emit;
+  process.stdin.emit = function (event, chunk) {
+    if (event === 'data' && (Buffer.isBuffer(chunk) || typeof chunk === 'string')) {
+      const str = chunk.toString('utf8');
+      const mouseRegex = /(?:\x1b\[<)?(\d+);(\d+);(\d+)([Mm])/g;
+      let match;
+      let hasMouse = false;
+      while ((match = mouseRegex.exec(str)) !== null) {
+        hasMouse = true;
+        const button = parseInt(match[1], 10);
+        const x = parseInt(match[2], 10);
+        const y = parseInt(match[3], 10);
+        const isPress = match[4] === 'M';
+
+        if (isPress && button === 0) {
+          if (!isPaletteOpen && !isBusy) {
+            if (y === 1 || y === 2) {
+              if (x >= plusZone.startX && x <= plusZone.endX) {
+                createNewTab();
+              } else {
+                for (const tz of tabZones) {
+                  if (x >= tz.startX && x <= tz.endX) {
+                    switchTab(tz.idx);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (hasMouse) {
+        const cleaned = str.replace(/(?:\x1b\[<)?\d+;\d+;\d+[Mm]/g, '').replace(/\x1b\[</g, '');
+        if (!cleaned) return true;
+        chunk = Buffer.isBuffer(chunk) ? Buffer.from(cleaned) : cleaned;
+      }
+    }
+    return origStdinEmit.apply(this, arguments);
   };
 
   // ── Model & Power Cycling ──
@@ -1212,30 +1264,13 @@ async function runChat(options = {}) {
     }
 
     // ── Normal Mode Handlers ──
-    // Mouse event handling (clickable tabs and [+] button)
-    if (s && s.startsWith('\x1b[<')) {
-      const mouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
-      if (mouseMatch) {
-        const button = parseInt(mouseMatch[1], 10);
-        const x = parseInt(mouseMatch[2], 10);
-        const y = parseInt(mouseMatch[3], 10);
-        const isPress = mouseMatch[4] === 'M';
-
-        if (button === 0 && isPress && (y === 1 || y === 2)) {
-          // Tab bar was clicked!
-          if (x >= plusZone.startX && x <= plusZone.endX) {
-            createNewTab();
-            return;
-          }
-          for (const tz of tabZones) {
-            if (x >= tz.startX && x <= tz.endX) {
-              switchTab(tz.idx);
-              return;
-            }
-          }
-        }
-        return; // Don't let mouse escape sequences print into prompt!
-      }
+    // Filter out any stray mouse escape sequences from terminal
+    if (s && /(?:\x1b\[<)?\d+;\d+;\d+[Mm]/.test(s)) {
+      return;
+    }
+    if (rl.line && /(?:\x1b\[<)?\d+;\d+;\d+[Mm]/.test(rl.line)) {
+      rl.line = rl.line.replace(/(?:\x1b\[<)?\d+;\d+;\d+[Mm]/g, '');
+      rl._refreshLine();
     }
 
     // '+' key creates a new tab when input line is empty
@@ -1588,20 +1623,24 @@ async function runChat(options = {}) {
         ];
 
         const startTime = Date.now();
-        const thinkingFrames = ['—', '\\', '|', '/'];
-        const thinkingColors = [OC.barCyan, rgb(121, 192, 255), OC.textWhite, rgb(188, 140, 255)];
-        let pulseIdx = 0;
         let timerId = null;
 
-        if (isTTY) {
-          timerId = setInterval(() => {
+        const startThinkingShimmer = () => {
+          if (!isTTY) return null;
+          const shimmerWidth = 16;
+          let beamPos = 0;
+          let beamDir = 1;
+          return setInterval(() => {
             const elapsed = formatDuration(Date.now() - startTime);
-            const symbol = thinkingFrames[pulseIdx % thinkingFrames.length];
-            const color  = thinkingColors[pulseIdx % thinkingColors.length];
-            pulseIdx++;
-            process.stdout.write(`\r\x1b[K  ${color}${symbol}${OC.reset} ${OC.textDim}Thought for ${elapsed}…${OC.reset}`);
-          }, 80);
-        }
+            beamPos += beamDir;
+            if (beamPos >= shimmerWidth - 1) { beamDir = -1; beamPos = shimmerWidth - 1; }
+            else if (beamPos <= 0) { beamDir = 1; beamPos = 0; }
+            const beam = renderShimmerBeam(shimmerWidth, beamPos);
+            process.stdout.write(`\r\x1b[K  ${beam} ${OC.textDim}esc interrupt${OC.reset}   ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed}…${OC.reset}`);
+          }, 40);
+        };
+
+        timerId = startThinkingShimmer();
 
         let agentLoopDone = false;
         let finalResponseText = '';
@@ -1649,7 +1688,7 @@ async function runChat(options = {}) {
               });
             }
 
-            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for 4s${OC.reset}\n`);
+            timerId = startThinkingShimmer();
             continue;
           }
 
@@ -1689,6 +1728,7 @@ async function runChat(options = {}) {
 
     rl.on('close', async () => {
       cleanupMouse();
+      if (origStdinEmit) process.stdin.emit = origStdinEmit;
       while (isBusy) await sleep(80);
       resolve('close');
     });
