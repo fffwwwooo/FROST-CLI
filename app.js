@@ -902,13 +902,10 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   console.log('');
 }
 
-// ── Render: OpenCode Chat Screen (with full Markdown, Syntax Highlighting & 2-Column Sidebar) ──
+// ── Render: OpenCode Chat Screen ──
 function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '') {
   const cols = process.stdout.columns || 90;
-  const isWide = cols >= 105;
-  const sideW = isWide ? 28 : 0;
-  const mainW = isWide ? (cols - sideW - 4) : Math.max(50, cols - 4);
-  const curTab = tabs[activeTabIdx] || { title: 'New session', history: [] };
+  const cardW = Math.max(50, cols - 6);
 
   console.clear();
 
@@ -916,92 +913,35 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
-  // 2. Chat message lines
-  const chatLines = [];
-
+  // 2. Chat messages (single-column, naturally wrapping, full markdown)
   for (let idx = 0; idx < history.length; idx++) {
     const m = history[idx];
     if (m.role === 'user') {
       const content = m.content || '';
-      const padLen = Math.max(1, mainW - 4 - stripAnsi(content).length);
-      chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
-      chatLines.push('');
+      const padLen = Math.max(1, cardW - 4 - stripAnsi(content).length);
+      console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      console.log('');
     } else if (m.role === 'assistant') {
-      // OpenCode collapsed thought indicator (+ Thought · Xs)
-      const thoughtDur = m.thought || m.duration || '2.8s';
-      chatLines.push('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
+      // Thought indicator
+      const thoughtDur = m.thought || m.duration || '2s';
+      console.log('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
 
       // Markdown formatted blocks
-      const blocks = renderMarkdownBlocks(m.content, mainW);
+      const blocks = renderMarkdownBlocks(m.content, cardW);
       for (const b of blocks) {
-        chatLines.push(b);
+        console.log(b);
       }
-
-      // OpenCode assistant message footer
-      const dur = m.duration || '3.2s';
-      const spd = m.speed || '38.4 tok/s';
-      const meta = '  ' + OC.barCyan + 'Autonomous' + OC.textDim + ' · ' +
-        OC.textWhite + (m.model || currentModel) + ' ' + (m.power || currentPower) + OC.textDim +
-        ' · ' + dur + ' · ' + spd + OC.reset;
-      chatLines.push(meta);
-      chatLines.push('');
+      console.log('');
     }
   }
 
-  // 3. Right Sidebar lines (visible when window is wide >= 105 columns)
-  let sideLines = [];
-  if (isWide) {
-    const usedTokens = curTab.tokens || 8483;
-    const maxTokens = 200000;
-    const pct = Math.max(1, Math.min(100, Math.round((usedTokens / maxTokens) * 100)));
-    const shortPath = cwd ? (cwd.length > 26 ? '...' + cwd.slice(-23) : cwd) : '';
-
-    sideLines = [
-      OC.bold + OC.textWhite + curTab.title + OC.reset,
-      '',
-      OC.textDim + 'Context' + OC.reset,
-      OC.textWhite + usedTokens.toLocaleString() + ' tokens' + OC.reset,
-      OC.textDim + pct + '% used' + OC.reset,
-      '',
-      OC.textDim + 'PC Access' + OC.reset,
-      OC.green + '● ' + OC.textWhite + 'Full Root' + OC.reset,
-      '',
-      OC.textDim + 'MCP' + OC.reset,
-      OC.green + '● ' + OC.textWhite + '1 MCP' + '   ' + OC.textDim + 'Connected' + OC.reset,
-      '',
-      shortPath ? OC.textDim + shortPath + OC.reset : '',
-    ];
-  }
-
-  // 4. Print combined lines
-  const totalRows = Math.max(chatLines.length, sideLines.length);
-  for (let r = 0; r < totalRows; r++) {
-    const left = chatLines[r] || '';
-    if (isWide) {
-      const right = sideLines[r] || '';
-      const leftVis = stripAnsi(left).length;
-      const spacer = ' '.repeat(Math.max(2, mainW - leftVis + 3));
-      console.log(left + spacer + right);
-    } else {
-      console.log(left);
-    }
-  }
-
-  // 5. Input status bar (above input prompt)
-  const statusLeft = ' ' + BAR + ' ' +
-    OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
-    OC.textWhite + currentModel + ' ' +
-    OC.peach + currentPower + OC.reset;
-  console.log(statusLeft);
-
-  // 6. Footer: token usage, directory and keyboard shortcuts
+  // 3. Status & shortcuts line immediately above prompt
   const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '';
-  const tokenStats = `${((curTab.tokens || 8483) / 1000).toFixed(1)}K (${Math.max(1, Math.round(((curTab.tokens || 8483) / 200000) * 100))}%)`;
-  const footRight = OC.textDim + tokenStats + '   ' +
-                    OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
-                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
-  const midSpace = ' '.repeat(Math.max(2, (isWide ? mainW : cols) - shortCwd.length - stripAnsi(footRight).length));
-  console.log(' ' + OC.textDim + shortCwd + midSpace + footRight + OC.reset);
+  const rightInfo = OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.textDim + '   shift+tab model   ctrl+p commands';
+  const rightVisLen = stripAnsi(rightInfo).length;
+  const midSpace = ' '.repeat(Math.max(2, cols - shortCwd.length - rightVisLen - 2));
+
+  console.log(' ' + OC.textDim + shortCwd + midSpace + rightInfo + OC.reset);
 }
 
 // ── Render: Command Palette Modal ──
