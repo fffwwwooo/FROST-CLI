@@ -92,12 +92,14 @@ const C = {
 
 const BAR = OC.barCyan + '▌' + OC.reset;
 
-// ─── FROST Block Logo (OpenCode silver→white horizontal gradient) ───
+// ─── FROST Block Logo (Prominent OpenCode silver→white horizontal gradient) ───
 const FROST_LOGO = [
-  '  █▀▀  █▀█  █▀█  █▀█  ▀█▀',
-  '  ██▀  ██▀  █ █  ▀█▄   █ ',
-  '  █    █ █  █ █  ▄▄█   █ ',
-  '  █    █ █  █▄█  ██▀   █ ',
+  '  ███████╗██████╗  ██████╗ ███████╗████████╗',
+  '  ██╔════╝██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝',
+  '  █████╗  ██████╔╝██║   ██║███████╗   ██║   ',
+  '  ██╔══╝  ██╔══██╗██║   ██║╚════██║   ██║   ',
+  '  ██║     ██║  ██║╚██████╔╝███████║   ██║   ',
+  '  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝   ',
 ];
 
 function renderLogoLines() {
@@ -653,103 +655,124 @@ function getSelectablePaletteItems(query) {
   });
 }
 
+// ── Global Tab Click Tracking Zones (for Mouse Clicks) ──
+let tabZones = [];
+let plusZone = { startX: 0, endX: 0 };
+
+function renderTabBar(tabs, activeTabIdx) {
+  tabZones = [];
+  let tabLine = ' ';
+  let curX = 1;
+
+  for (let i = 0; i < tabs.length; i++) {
+    const t = tabs[i];
+    const isAct = (i === activeTabIdx);
+    const startX = curX;
+    let seg = '';
+    if (isAct) {
+      seg = ' ● ' + t.title + ' ';
+      tabLine += OC.bgTabActive + OC.textWhite + seg + OC.reset + ' ';
+    } else {
+      seg = '   ' + t.title + ' ';
+      tabLine += OC.textDim + seg + OC.reset + ' ';
+    }
+    curX += seg.length + 1;
+    tabZones.push({ idx: i, startX, endX: curX });
+  }
+
+  const plusStart = curX;
+  const plusSeg = ' + ';
+  tabLine += OC.bgTabActive + OC.peach + OC.bold + plusSeg + OC.reset;
+  plusZone = { startX: plusStart, endX: plusStart + plusSeg.length + 2 };
+
+  return tabLine;
+}
+
 // ── Render: OpenCode Home Screen ──
-function renderOpenCodeHome(currentModel, currentPower, cwd) {
-  const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
-  const cardW = Math.min(Math.max(60, cols - 10), 90);
+function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'New session' }], activeTabIdx = 0) {
+  const cols = Math.min(process.stdout.columns || 90, 100);
+  const cardW = Math.max(64, cols - 8);
 
   console.clear();
 
-  // Vertical centering: push logo to ~40% of terminal height
-  const topPad = Math.max(2, Math.floor(rows * 0.25));
-  for (let i = 0; i < topPad; i++) console.log('');
-
-  // 1. Centered logo with silver→white gradient
-  const logoLines = renderLogoLines();
-  for (const line of logoLines) {
-    const rawLen = FROST_LOGO[0].length;
-    const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLen) / 2)));
-    console.log(leftPad + line);
-  }
-
-  // 2. Subtext
-  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION}${OC.reset}`;
-  const subRaw = `/help for commands · v${VERSION}`;
-  const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRaw.length) / 2)));
-  console.log('');
-  console.log(subPad + subText);
+  // 1. Tab bar at top (clickable [+] and solid ● bullets)
+  console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
-  // 3. Elevated card with cyan bar (the input card)
+  // 2. Centered Prominent Logo
+  const logo = renderLogoLines();
+  const rawLogoW = FROST_LOGO[0].length;
+  const logoPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLogoW) / 2)));
+  for (const l of logo) console.log(logoPad + l);
+
+  // 3. Subtext
+  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION} · Autonomous Agent with Full PC Access${OC.reset}`;
+  const subRawLen = 65;
+  const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRawLen) / 2)));
+  console.log('\n' + subPad + subText + '\n');
+
+  // 4. System Status Badges
+  const badgePad = ' '.repeat(Math.max(2, Math.floor((cols - 68) / 2)));
+  console.log(badgePad + OC.green + '●' + OC.textDim + ' AI Core: ' + OC.textWhite + 'Online   ' +
+                         OC.barCyan + '●' + OC.textDim + ' Access: ' + OC.textWhite + 'Full Root   ' +
+                         OC.peach + '●' + OC.textDim + ' Engine: ' + OC.textWhite + 'Autonomous' + OC.reset);
+  console.log('');
+
+  // 5. Quick suggestion pills
   const cardPad = ' '.repeat(Math.max(2, Math.floor((cols - cardW) / 2)));
+  console.log(cardPad + OC.textDim + '💡 Быстрый старт: ' +
+              OC.textWhite + '"Создай файл index.html на Desktop"' + OC.textDim + ' · ' +
+              OC.textWhite + '"Покажи запущенные процессы"' + OC.reset);
+  console.log('');
 
-  // Card line 1: placeholder text
-  const placeholder = 'Ask anything... "Что такое стек этого проекта?"';
-  const l1pad = ' '.repeat(Math.max(1, cardW - 4 - placeholder.length));
-  console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' + OC.textMuted + placeholder + OC.bgCard + l1pad + ' ' + OC.reset);
-
-  // Card line 2: model tag bar
+  // 6. Elevated card (Line 2: Model & Status Bar)
   const tagLine = `Autonomous · ${currentModel} ${currentPower} FROST`;
   const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));
+
   console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' +
     OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
-    OC.textMuted + currentPower + ' ' +
+    OC.peach + currentPower + ' ' +
     OC.textDim + 'FROST' + OC.bgCard + l2pad + ' ' + OC.reset);
 
-  // 4. Path and shortcuts line
-  const shortCwd = cwd.length > 40 ? '...' + cwd.slice(-37) : cwd;
-  const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' + OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
-  const pathStr = OC.textDim + shortCwd + OC.reset;
-  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 26));
-  console.log(cardPad + ' ' + pathStr + midSpace + keysHint + OC.reset);
+  // 7. Path and shortcuts line
+  const shortCwd = cwd.length > 38 ? '...' + cwd.slice(-35) : cwd;
+  const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
+                   OC.textMuted + 'tab' + OC.textDim + ' power   ' +
+                   OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
+  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 36));
+  console.log(cardPad + ' ' + OC.textDim + shortCwd + midSpace + keysHint + OC.reset);
 
-  // 5. Fill space to push footer to bottom
-  const usedRows = topPad + FROST_LOGO.length + 5 + 3;
-  const bottomGap = Math.max(2, rows - usedRows - 2);
-  for (let i = 0; i < bottomGap; i++) console.log('');
+  console.log('');
 
-  // 6. Footer
-  const footLeft = ' ' + OC.green + '◧' + OC.textMuted + ' Full PC Access   ' +
-                   OC.accentBlue + '◧' + OC.textMuted + ' 1 MCP';
+  // 8. Footer (solid ● bullets)
+  const footLeft = ' ' + OC.green + '●' + OC.textMuted + ' Full PC Access   ' +
+                   OC.accentBlue + '●' + OC.textMuted + ' 1 MCP';
   const footRight = OC.textDim + VERSION + ' ';
   const footSpace = ' '.repeat(Math.max(2, cols - 32 - VERSION.length - 2));
   console.log(footLeft + footSpace + footRight + OC.reset);
+  console.log('');
 }
 
 // ── Render: OpenCode Chat Screen ──
 function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy) {
   const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
   const cardW = Math.max(60, cols - 6);
 
   console.clear();
 
-  // 1. Tab bar at top
-  let tabLine = ' ';
-  for (let i = 0; i < tabs.length; i++) {
-    const t = tabs[i];
-    if (i === activeTabIdx) {
-      tabLine += OC.bgTabActive + ' ⁖ ' + OC.textWhite + t.title + ' ' + OC.reset + ' ';
-    } else {
-      tabLine += OC.textDim + '   ' + t.title + '  ' + OC.reset;
-    }
-  }
-  tabLine += OC.textDim + '+  ' + OC.reset;
-  console.log(tabLine);
+  // 1. Tab bar at top (clickable)
+  console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
   // 2. Chat messages
   for (const m of history) {
     if (m.role === 'user') {
-      // User message: dark card with cyan bar
       const content = m.content;
       const padLen = Math.max(1, cardW - 4 - content.length);
       console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
       console.log('');
     } else if (m.role === 'assistant') {
-      // Assistant message: plain text with slight indent
       const lines = m.content.split('\n');
       for (const l of lines) {
         console.log('  ' + OC.textWhite + l + OC.reset);
@@ -762,16 +785,18 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   const statusLeft = ' ' + BAR + ' ' +
     OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
-    OC.textMuted + currentPower + ' ' +
+    OC.peach + currentPower + ' ' +
     OC.textDim + 'FROST' + OC.reset;
   console.log(statusLeft);
 
-  // 4. Footer
+  // 4. Footer (using solid ■ squares instead of broken ▰)
   const footLeft = isBusy
-    ? ' ' + OC.accentBlue + '▰▰▰▰▰▰▰▰' + OC.textDim + ' esc interrupt'
-    : ' ' + OC.textDim + '                            ';
-  const footRight = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' + OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
-  const footSpace = ' '.repeat(Math.max(2, cols - 30 - 32));
+    ? ' ' + OC.accentBlue + '■■■■■■■■' + OC.textDim + ' esc interrupt'
+    : ' ' + OC.textDim + 'esc interrupt                 ';
+  const footRight = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
+                    OC.textMuted + 'tab' + OC.textDim + ' power   ' +
+                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
+  const footSpace = ' '.repeat(Math.max(2, cols - 30 - 36));
   console.log(footLeft + footSpace + footRight + OC.reset);
 }
 
@@ -928,12 +953,21 @@ async function runChat(options = {}) {
     return OC.bgCard + ' ' + BAR + ' ' + OC.textWhite;
   };
 
+  // ── Mouse cleanup handler ──
+  const cleanupMouse = () => {
+    if (isTTY) {
+      try { process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1006l'); } catch {}
+    }
+  };
+  process.on('exit', cleanupMouse);
+
   // ── Show Home Screen ──
   const cwd = process.cwd().replace(/\\/g, '/');
-  renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
+  renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd, tabs, activeTabIdx);
 
   if (isTTY) {
     try { readline.emitKeypressEvents(process.stdin); } catch {}
+    try { process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h'); } catch {}
   }
 
   const rl = readline.createInterface({
@@ -954,10 +988,14 @@ async function runChat(options = {}) {
     }
   };
 
-  // ── Full Screen Redraw (OpenCode Chat View) ──
-  const redrawChatView = () => {
+  // ── Unified View Refresh (stays on Home screen if history is empty) ──
+  const refreshCurrentView = () => {
     const curTab = getActiveTab();
-    renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy);
+    if (curTab.history.length === 0) {
+      renderOpenCodeHome(curTab.model, POWER_MODES[curTab.powerIdx].label, cwd, tabs, activeTabIdx);
+    } else {
+      renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy);
+    }
     if (isTTY) {
       process.stdout.write(`\x1b]0;FROST CLI · ${curTab.title} · ${curTab.model} · ${POWER_MODES[curTab.powerIdx].label}\x07`);
     }
@@ -973,20 +1011,20 @@ async function runChat(options = {}) {
       const curTab = getActiveTab();
       currentModel = curTab.model;
       currentPowerIdx = curTab.powerIdx;
-      redrawChatView();
+      refreshCurrentView();
     }
   };
 
   const createNewTab = (title = '') => {
     if (isBusy) return;
     const nextId = tabs.length > 0 ? Math.max(...tabs.map(t => t.id)) + 1 : 1;
-    const tabTitle = title.trim() || `Chat ${nextId}`;
+    const tabTitle = title.trim() || `New session ${nextId}`;
     tabs.push({
       id: nextId, title: tabTitle,
       model: currentModel, powerIdx: currentPowerIdx, history: [],
     });
     activeTabIdx = tabs.length - 1;
-    redrawChatView();
+    refreshCurrentView();
   };
 
   const closeCurrentTab = (targetIdx = activeTabIdx) => {
@@ -995,8 +1033,7 @@ async function runChat(options = {}) {
       tabs[0].title = 'New session';
       tabs[0].history = [];
       activeTabIdx = 0;
-      renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
-      safePrompt();
+      refreshCurrentView();
       return;
     }
     tabs.splice(targetIdx, 1);
@@ -1004,7 +1041,7 @@ async function runChat(options = {}) {
     const curTab = getActiveTab();
     currentModel = curTab.model;
     currentPowerIdx = curTab.powerIdx;
-    redrawChatView();
+    refreshCurrentView();
   };
 
   // ── Model & Power Cycling ──
@@ -1014,7 +1051,7 @@ async function runChat(options = {}) {
     const curIdx = availableModels.indexOf(curTab.model);
     curTab.model = availableModels[(curIdx + 1) % availableModels.length];
     currentModel = curTab.model;
-    redrawChatView();
+    refreshCurrentView();
   };
 
   const cyclePower = () => {
@@ -1022,7 +1059,7 @@ async function runChat(options = {}) {
     const curTab = getActiveTab();
     curTab.powerIdx = (curTab.powerIdx + 1) % POWER_MODES.length;
     currentPowerIdx = curTab.powerIdx;
-    redrawChatView();
+    refreshCurrentView();
   };
 
   // ── Command Palette Execution ──
@@ -1045,7 +1082,7 @@ async function runChat(options = {}) {
         cyclePower();
         break;
       case 'token_manager':
-        redrawChatView();
+        refreshCurrentView();
         // Trigger /tokens logic inline
         (async () => {
           const store = await autoDiscoverTokens();
@@ -1061,7 +1098,7 @@ async function runChat(options = {}) {
         })();
         return;
       case 'stats':
-        redrawChatView();
+        refreshCurrentView();
         (async () => {
           await animateToolStep('Querying Tokify Gateway', currentToken.name, 250);
           const info = await verifyKey(currentToken.key).catch(() => null);
@@ -1094,17 +1131,16 @@ async function runChat(options = {}) {
       case 'clear_chat':
         getActiveTab().history = [];
         getActiveTab().title = 'New session';
-        renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
-        safePrompt();
+        refreshCurrentView();
         break;
       case 'help':
-        redrawChatView();
+        refreshCurrentView();
         console.log('');
         console.log(`${OC.bold}${OC.textWhite}FROST CLI Commands:${OC.reset}`);
         console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Cycle model${C.reset}`);
         console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Cycle power (High/Medium/Fast)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab (or click +)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Close current tab${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Switch between tabs${C.reset}`);
         console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Jump to tab 1..9${C.reset}`);
@@ -1118,11 +1154,12 @@ async function runChat(options = {}) {
         safePrompt();
         break;
       case 'exit':
+        cleanupMouse();
         console.log(`\n${C.dimText}До встречи! 👋${C.reset}\n`);
         process.exit(0);
         break;
       default:
-        redrawChatView();
+        refreshCurrentView();
         safePrompt();
     }
   };
@@ -1136,13 +1173,7 @@ async function runChat(options = {}) {
         isPaletteOpen = false;
         paletteQuery = '';
         paletteIndex = 0;
-        const curTab = getActiveTab();
-        if (curTab.history.length > 0) {
-          redrawChatView();
-        } else {
-          renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
-        }
-        safePrompt();
+        refreshCurrentView();
         return;
       }
       const selectables = getSelectablePaletteItems(paletteQuery);
@@ -1180,7 +1211,39 @@ async function runChat(options = {}) {
       return;
     }
 
-    // ── Normal Mode Key Handlers ──
+    // ── Normal Mode Handlers ──
+    // Mouse event handling (clickable tabs and [+] button)
+    if (s && s.startsWith('\x1b[<')) {
+      const mouseMatch = s.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+      if (mouseMatch) {
+        const button = parseInt(mouseMatch[1], 10);
+        const x = parseInt(mouseMatch[2], 10);
+        const y = parseInt(mouseMatch[3], 10);
+        const isPress = mouseMatch[4] === 'M';
+
+        if (button === 0 && isPress && (y === 1 || y === 2)) {
+          // Tab bar was clicked!
+          if (x >= plusZone.startX && x <= plusZone.endX) {
+            createNewTab();
+            return;
+          }
+          for (const tz of tabZones) {
+            if (x >= tz.startX && x <= tz.endX) {
+              switchTab(tz.idx);
+              return;
+            }
+          }
+        }
+        return; // Don't let mouse escape sequences print into prompt!
+      }
+    }
+
+    // '+' key creates a new tab when input line is empty
+    if (s === '+' && rl.line.trim() === '') {
+      createNewTab();
+      return;
+    }
+
     // Ctrl+P → Open Command Palette
     if ((key && key.ctrl && key.name === 'p') || s === '\x10') {
       if (isBusy) return;
@@ -1320,7 +1383,7 @@ async function runChat(options = {}) {
             case '/rename': {
               if (argStr) {
                 getActiveTab().title = argStr.slice(0, 24);
-                redrawChatView();
+                refreshCurrentView();
                 return;
               }
               console.log(`${OC.peach}Укажите новое название: /rename <название>${OC.reset}\n`);
@@ -1339,7 +1402,7 @@ async function runChat(options = {}) {
                 if (target !== null) {
                   currentPowerIdx = target;
                   getActiveTab().powerIdx = target;
-                  redrawChatView();
+                  refreshCurrentView();
                   return;
                 }
               }
@@ -1396,7 +1459,7 @@ async function runChat(options = {}) {
                 if (found) {
                   currentModel = found;
                   getActiveTab().model = found;
-                  redrawChatView();
+                  refreshCurrentView();
                   return;
                 }
                 console.log(`${OC.red}✗ Модель не найдена: ${argStr}${OC.reset}`);
@@ -1619,12 +1682,13 @@ async function runChat(options = {}) {
         if (curTab && curTab.history.length > 0) curTab.history.pop();
       } finally {
         isBusy = false;
-        redrawChatView();
+        refreshCurrentView();
         safePrompt();
       }
     });
 
     rl.on('close', async () => {
+      cleanupMouse();
       while (isBusy) await sleep(80);
       resolve('close');
     });
