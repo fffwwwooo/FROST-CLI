@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* ═══════════════════════════════════════════════════════════════════════
  *  FROST CLI 2.0 — Autonomous AI Agent with Full PC Access
- *  • Shimmering Aurora / Frost Animated ASCII Logo
+ *  OpenCode-inspired Terminal User Interface
  *  • Full PC Access: Execute PowerShell, manage files, launch apps
  *  • 100% Single-Window: Zero extra popups, seamless interactive loop
  *  • Background DSH Web integration (http://127.0.0.1:3080)
@@ -24,16 +24,10 @@ const oraLib   = require('ora');
 const boxen    = require('boxen');
 const Table    = require('cli-table3');
 
-const SAFE_SPINNER = {
-  interval: 80,
-  frames: ['—', '\\', '|', '/'],
-};
+const SAFE_SPINNER = { interval: 80, frames: ['—', '\\', '|', '/'] };
 function ora(opts) {
   if (typeof opts === 'string') opts = { text: opts };
-  return oraLib({
-    spinner: SAFE_SPINNER,
-    ...opts,
-  });
+  return oraLib({ spinner: SAFE_SPINNER, ...opts });
 }
 
 // ─── Environment & Constants ───
@@ -52,124 +46,77 @@ const DSH_PORT     = 3080;
 
 const isTTY = Boolean(process.stdout.isTTY);
 const rgb   = (r, g, b) => isTTY ? `\x1b[38;2;${r};${g};${b}m` : '';
-const ESC   = (code)    => isTTY ? `\x1b[${code}m` : '';
+const bgRgb = (r, g, b) => isTTY ? `\x1b[48;2;${r};${g};${b}m` : '';
 
-const C = {
-  reset:     ESC(0),
-  bold:      ESC(1),
-  dim:       ESC(2),
-  italic:    ESC(3),
-  under:     ESC(4),
-  cyan:      rgb(88, 166, 255),   // #58a6ff
-  ice:       rgb(121, 192, 255),  // #79c0ff
-  green:     rgb(63, 185, 80),    // #3fb950
-  orange:    rgb(255, 140, 0),    // #ff8c00
-  yellow:    rgb(234, 179, 8),    // #eab308
-  red:       rgb(248, 81, 73),    // #f85149
-  purple:    rgb(188, 140, 255),  // #bc8cff
-  snow:      rgb(240, 246, 252),  // #f0f6fc
-  dimText:   rgb(139, 148, 158),  // #8b949e
-  dimGray:   rgb(110, 118, 129),  // #6e7681
-  darkLine:  rgb(48, 54, 61),     // #30363d
+// ─── OpenCode Theme (ANSI True Color) ───
+const OC = {
+  reset:  isTTY ? '\x1b[0m' : '',
+  bold:   isTTY ? '\x1b[1m' : '',
+  dim:    isTTY ? '\x1b[2m' : '',
+  bgCard:      bgRgb(24, 24, 27),        // #18181b
+  bgTabActive: bgRgb(34, 34, 39),        // #222227
+  bgModal:     bgRgb(20, 20, 23),        // #141417
+  bgSelected:  bgRgb(240, 147, 91),      // #f0935b peach pill
+  fgBlack:     rgb(0, 0, 0),
+  barCyan:     rgb(56, 139, 253),        // #388bfd
+  accentBlue:  rgb(56, 139, 253),        // #388bfd
+  textWhite:   rgb(240, 246, 252),       // #f0f6fc
+  textMuted:   rgb(139, 148, 158),       // #8b949e
+  textDim:     rgb(110, 118, 129),       // #6e7681
+  catViolet:   rgb(147, 130, 255),       // #9382ff
+  peach:       rgb(240, 147, 91),        // #f0935b
+  green:       rgb(52, 211, 153),        // #34d399
+  red:         rgb(248, 113, 113),       // #f87171
+  yellow:      rgb(234, 179, 8),         // #eab308
 };
 
-// ─── FROST Logo & Shimmering Aurora Palette (Claude Code Isometric Double-Line Style) ───
+// Legacy color aliases (used throughout slash commands & agent loop)
+const C = {
+  reset:    OC.reset,
+  bold:     OC.bold,
+  dim:      OC.dim,
+  italic:   isTTY ? '\x1b[3m' : '',
+  under:    isTTY ? '\x1b[4m' : '',
+  cyan:     rgb(88, 166, 255),
+  ice:      rgb(121, 192, 255),
+  green:    rgb(63, 185, 80),
+  orange:   rgb(255, 140, 0),
+  yellow:   rgb(234, 179, 8),
+  red:      rgb(248, 81, 73),
+  purple:   rgb(188, 140, 255),
+  snow:     rgb(240, 246, 252),
+  dimText:  rgb(139, 148, 158),
+  dimGray:  rgb(110, 118, 129),
+  darkLine: rgb(48, 54, 61),
+};
+
+const BAR = OC.barCyan + '▌' + OC.reset;
+
+// ─── FROST Block Logo (OpenCode silver→white horizontal gradient) ───
 const FROST_LOGO = [
-  '  ██████╗   ██████╗   ██████╗   ███████╗  ████████╗',
-  '  ██╔═══╝   ██╔══██╗ ██╔═══██╗  ██╔════╝  ╚══██╔══╝',
-  '  █████╗    ██████╔╝ ██║   ██║  ███████╗     ██║   ',
-  '  ██╔══╝    ██╔══██╗ ██║   ██║  ╚════██║     ██║   ',
-  '  ██║       ██║  ██║ ╚██████╔╝  ███████║     ██║   ',
-  '  ╚═╝       ╚═╝  ╚═╝  ╚═════╝   ╚══════╝     ╚═╝   ',
+  '  █▀▀  █▀█  █▀█  █▀█  ▀█▀',
+  '  ██▀  ██▀  █ █  ▀█▄   █ ',
+  '  █    █ █  █ █  ▄▄█   █ ',
+  '  █    █ █  █▄█  ██▀   █ ',
 ];
 
-// ─── Smooth Dark Red / Crimson Multi-Stop Gradient ───
-function lerpColor(a, b, t) {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ];
-}
-
-function generateDarkRedGradient(totalSteps = 48) {
-  const stops = [
-    [65, 8, 14],    // Deep dark burgundy / blood wine
-    [120, 14, 24],  // Dark garnet
-    [180, 22, 36],  // Rich crimson ruby
-    [235, 40, 52],  // Radiant scarlet
-    [255, 75, 82],  // Soft ember glow highlight
-    [235, 40, 52],  // Radiant scarlet
-    [180, 22, 36],  // Rich crimson ruby
-    [120, 14, 24],  // Dark garnet
-    [65, 8, 14],    // Loop back seamlessly to deep dark burgundy
-  ];
-  const result = [];
-  const segments = stops.length - 1;
-  const stepsPerSeg = totalSteps / segments;
-  for (let i = 0; i < totalSteps; i++) {
-    const seg = Math.min(Math.floor(i / stepsPerSeg), segments - 1);
-    const t = (i - seg * stepsPerSeg) / stepsPerSeg;
-    const smoothT = (1 - Math.cos(t * Math.PI)) / 2; // Cosine easing for buttery smooth transitions
-    result.push(lerpColor(stops[seg], stops[seg + 1], smoothT));
+function renderLogoLines() {
+  const lines = [];
+  for (const line of FROST_LOGO) {
+    let out = '';
+    for (let c = 0; c < line.length; c++) {
+      const ch = line[c];
+      if (ch === ' ') { out += ' '; continue; }
+      const t = c / line.length;
+      const val = Math.round(110 + (255 - 110) * t);
+      out += rgb(val, val, Math.min(255, val + 15)) + ch + OC.reset;
+    }
+    lines.push(out);
   }
-  return result;
+  return lines;
 }
-const RED_GRADIENT = generateDarkRedGradient(48);
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-// ─── Cyberpunk Monolith HUD Box (Idea 4) with Smooth Dark Red Shimmer ───
-function renderCyberHudMonolith(shift = 0) {
-  const borderCol = rgb(125, 18, 26);
-  const tagCol    = rgb(235, 42, 54);
-  const hotCol    = rgb(255, 75, 82);
-  const totalW    = 78;
-
-  const topTag1 = borderCol + '╔═[' + C.reset + tagCol + C.bold + ' FROST KERNEL v' + VERSION + ' ' + C.reset + borderCol + ']';
-  const topTag2 = '[' + C.reset + tagCol + C.bold + ' AI CORE: ONLINE ' + C.reset + borderCol + ']═╗' + C.reset;
-  const dashCount = Math.max(2, totalW - 20 - 18);
-  const topBar = topTag1 + borderCol + '═'.repeat(dashCount) + topTag2;
-
-  const telemetry = [
-    hotCol + '[●]' + C.reset + ' OS: ' + C.snow + 'Win32 x64' + C.reset,
-    hotCol + '[●]' + C.reset + ' Access: ' + tagCol + C.bold + 'Full Root' + C.reset,
-    hotCol + '[●]' + C.reset + ' Engine: ' + C.snow + 'Autonomous' + C.reset,
-    hotCol + '[●]' + C.reset + ' DSH Web: ' + tagCol + ':3080' + C.reset,
-    hotCol + '[●]' + C.reset + ' Control: ' + C.snow + 'Single Win' + C.reset,
-    hotCol + '[●]' + C.reset + ' State: ' + tagCol + 'Active' + C.reset,
-  ];
-
-  const telemetryPlain = [
-    '[●] OS: Win32 x64',
-    '[●] Access: Full Root',
-    '[●] Engine: Autonomous',
-    '[●] DSH Web: :3080',
-    '[●] Control: Single Win',
-    '[●] State: Active',
-  ];
-
-  const lines = [topBar];
-  for (let r = 0; r < FROST_LOGO.length; r++) {
-    const rawLine = FROST_LOGO[r];
-    let leftColored = '';
-    for (let c = 0; c < rawLine.length; c++) {
-      const ch = rawLine[c];
-      if (ch === ' ') { leftColored += ch; continue; }
-      const col = RED_GRADIENT[(Math.floor((c * RED_GRADIENT.length) / rawLine.length) + shift) % RED_GRADIENT.length];
-      leftColored += rgb(col[0], col[1], col[2]) + ch + C.reset;
-    }
-    const rightPlain = telemetryPlain[r];
-    const rightColored = telemetry[r];
-    const pad = ' '.repeat(Math.max(1, totalW - 2 - rawLine.length - rightPlain.length));
-    lines.push(borderCol + '║' + C.reset + leftColored + pad + rightColored + ' ' + borderCol + '║' + C.reset);
-  }
-
-  const bottomBar = borderCol + '╚' + '═'.repeat(totalW) + '╝' + C.reset;
-  lines.push(bottomBar);
-
-  return lines.join('\n');
-}
 
 // ─── Helpers ───
 function ensureDir(p) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true }); }
@@ -389,7 +336,7 @@ const POWER_MODES = [
   },
 ];
 
-// ── Keyboard Shortcut Helpers (Shift+Tab & Ctrl+Tab) ──
+// ── Keyboard Shortcut Helpers ──
 function isShiftTab(s, key) {
   if (!key) return s === '\x1b[Z';
   if (key.name === 'tab' && key.shift) return true;
@@ -401,25 +348,22 @@ function isShiftTab(s, key) {
 
 function isCtrlTab(s, key) {
   if (!key) {
-    return s === '\x1b[1;5I' || s === '\x1b[27;5;9~' || s === '\x1b[9;5u' || s === '\x1b[I' || s === '\t';
+    return s === '\x1b[1;5I' || s === '\x1b[27;5;9~' || s === '\x1b[9;5u' || s === '\x1b[I';
   }
-  // If Shift is pressed, handled as Shift+Tab
   if (key.shift) return false;
-  // In Windows conhost, Ctrl+Tab sends Tab (\t)
   if (key.name === 'tab') return true;
   if (s === '\t') return true;
   if (key.sequence === '\x1b[1;5I' || key.sequence === '\x1b[27;5;9~' || key.sequence === '\x1b[9;5u' || key.sequence === '\x1b[I') return true;
   if (key.ctrl && (key.sequence === '\t' || key.name === 'i')) return true;
-  if (key.ctrl && (key.name === 'p' || key.sequence === '\x10')) return true; // Ctrl+P fallback
-  if (key.name === 'f3') return true; // F3 fallback
+  if (key.name === 'f3') return true;
   return false;
 }
 
-// ── Stealth Background DSH Web Daemon (Zero Window Flashes) ──
+
+// ── Stealth Background DSH Web Daemon ──
 function getNodeExecutable() {
   const candidates = [
-    'node',
-    'node.exe',
+    'node', 'node.exe',
     path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'),
     path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe'),
     path.join(HOME, 'AppData', 'Roaming', 'nvm', 'current', 'node.exe'),
@@ -466,23 +410,14 @@ async function ensureDshWebSilent() {
       const nodeExe = getNodeExecutable();
 
       if (dshBin && fs.existsSync(dshBin)) {
-        // Direct launch of node executable with bin.js:
-        // No cmd.exe, no title changes, 100% hidden background process
         const child = spawn(nodeExe, [dshBin, 'web', '--no-open'], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-          shell: false,
+          detached: true, stdio: 'ignore', windowsHide: true, shell: false,
         });
         child.unref();
       } else {
-        // Fallback using PowerShell -WindowStyle Hidden to ensure no console flashes
         const psCmd = `Start-Process -FilePath 'cmd.exe' -ArgumentList '/c dsh web --no-open' -WindowStyle Hidden`;
         const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCmd], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-          shell: false,
+          detached: true, stdio: 'ignore', windowsHide: true, shell: false,
         });
         child.unref();
       }
@@ -501,7 +436,7 @@ async function ensureDshWebSilent() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 🛠️ FULL PC ACCESS: SYSTEM AGENT TOOLS
+// FULL PC ACCESS: SYSTEM AGENT TOOLS
 // ═══════════════════════════════════════════════════════════════════════
 const SYSTEM_TOOLS = [
   {
@@ -512,10 +447,7 @@ const SYSTEM_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          command: {
-            type: 'string',
-            description: 'The exact PowerShell command line to execute on the system',
-          },
+          command: { type: 'string', description: 'The exact PowerShell command line to execute on the system' },
         },
         required: ['command'],
       },
@@ -529,14 +461,8 @@ const SYSTEM_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          path: {
-            type: 'string',
-            description: 'The file path (e.g. C:\\Users\\...\\Desktop\\file.txt or relative path)',
-          },
-          content: {
-            type: 'string',
-            description: 'The full text content to write into the file',
-          },
+          path: { type: 'string', description: 'The file path (e.g. C:\\Users\\...\\Desktop\\file.txt)' },
+          content: { type: 'string', description: 'The full text content to write into the file' },
         },
         required: ['path', 'content'],
       },
@@ -550,10 +476,7 @@ const SYSTEM_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          path: {
-            type: 'string',
-            description: 'The path of the file to read',
-          },
+          path: { type: 'string', description: 'The path of the file to read' },
         },
         required: ['path'],
       },
@@ -567,10 +490,7 @@ const SYSTEM_TOOLS = [
       parameters: {
         type: 'object',
         properties: {
-          path: {
-            type: 'string',
-            description: 'The directory path to inspect (defaults to current directory or Desktop)',
-          },
+          path: { type: 'string', description: 'The directory path to inspect' },
         },
         required: [],
       },
@@ -583,9 +503,7 @@ function executeSystemTool(name, args) {
     try {
       const cmd = args.command;
       const res = execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${cmd.replace(/"/g, '\\"')}"`, {
-        encoding: 'utf8',
-        timeout: 60000,
-        windowsHide: true,
+        encoding: 'utf8', timeout: 60000, windowsHide: true,
       });
       return res || '(command completed successfully with no output)';
     } catch (e) {
@@ -634,38 +552,25 @@ function executeSystemTool(name, args) {
   return `Unknown tool: ${name}`;
 }
 
-// ── Streaming Chat Client ──
+// ── Chat API ──
 async function* streamChat(messages, model, key, tools = null, power = POWER_MODES[0]) {
   const bodyPayload = {
-    model,
-    messages,
-    stream: true,
+    model, messages, stream: true,
     max_tokens: power?.maxTokens || 16384,
   };
-  if (power?.effort) {
-    bodyPayload.reasoning_effort = power.effort;
-  }
-  if (tools) {
-    bodyPayload.tools = tools;
-    bodyPayload.tool_choice = 'auto';
-  }
+  if (power?.effort) bodyPayload.reasoning_effort = power.effort;
+  if (tools) { bodyPayload.tools = tools; bodyPayload.tool_choice = 'auto'; }
 
   const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify(bodyPayload),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     let msg = `HTTP error ${res.status}`;
-    try {
-      const errJson = JSON.parse(text);
-      msg = errJson.error?.message || errJson.message || msg;
-    } catch {}
+    try { const errJson = JSON.parse(text); msg = errJson.error?.message || errJson.message || msg; } catch {}
     throw new Error(msg);
   }
 
@@ -679,124 +584,271 @@ async function* streamChat(messages, model, key, tools = null, power = POWER_MOD
     buf += decoder.decode(value, { stream: true });
     const lines = buf.split('\n');
     buf = lines.pop() || '';
-
     for (const rawLine of lines) {
       const line = rawLine.trim();
       if (!line || !line.startsWith('data: ')) continue;
       const data = line.slice(6);
       if (data === '[DONE]') return;
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed.choices?.[0]?.delta;
-        if (delta) yield delta;
-      } catch {}
+      try { const parsed = JSON.parse(data); const delta = parsed.choices?.[0]?.delta; if (delta) yield delta; } catch {}
     }
   }
 }
 
-// ── Non-streaming call for Agent Tool Decision Phase ──
 async function callChatWithTools(messages, model, key, power = POWER_MODES[0]) {
   const payload = {
-    model,
-    messages,
-    tools: SYSTEM_TOOLS,
-    tool_choice: 'auto',
+    model, messages, tools: SYSTEM_TOOLS, tool_choice: 'auto',
     max_tokens: power?.maxTokens || 16384,
   };
-  if (power?.effort) {
-    payload.reasoning_effort = power.effort;
-  }
+  if (power?.effort) payload.reasoning_effort = power.effort;
 
   const res = await fetch(`${BASE_URL}/v1/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     let msg = `HTTP error ${res.status}`;
-    try {
-      const errJson = JSON.parse(text);
-      msg = errJson.error?.message || errJson.message || msg;
-    } catch {}
+    try { const errJson = JSON.parse(text); msg = errJson.error?.message || errJson.message || msg; } catch {}
     throw new Error(msg);
   }
 
   return await res.json();
 }
 
-// ── Animated Presentations ──
-function renderTabBar(tabs = [], activeTabIdx = 0) {
-  if (!tabs || tabs.length === 0) return '';
-  let bar = `  ${C.snow}Вкладки:${C.reset} `;
+
+// ═══════════════════════════════════════════════════════════════════════
+// OPENCODE-STYLE UI RENDERERS
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── Command Palette Items ──
+const PALETTE_ITEMS = [
+  { type: 'header', text: 'Suggested' },
+  { id: 'switch_session', title: 'Switch session',    key: 'ctrl+x l' },
+  { id: 'new_session',    title: 'New session',       key: 'ctrl+x n' },
+  { id: 'switch_model',   title: 'Switch model',      key: 'ctrl+x m' },
+  { id: 'switch_power',   title: 'Thinking power',    key: 'ctrl+x p' },
+  { id: 'token_manager',  title: 'Token manager',     key: 'ctrl+x t' },
+  { type: 'header', text: 'Prompt & System' },
+  { id: 'stats',          title: 'Token stats / balance', key: '' },
+  { id: 'clear_chat',     title: 'Clear history',     key: '' },
+  { id: 'help',           title: 'Show help',         key: '' },
+  { id: 'exit',           title: 'Exit FROST CLI',    key: '' },
+];
+
+function getFilteredPaletteItems(query) {
+  return PALETTE_ITEMS.filter(it => {
+    if (it.type === 'header') return true;
+    if (!query) return true;
+    return it.title.toLowerCase().includes(query.toLowerCase());
+  });
+}
+
+function getSelectablePaletteItems(query) {
+  return PALETTE_ITEMS.filter(it => {
+    if (it.type === 'header') return false;
+    if (!query) return true;
+    return it.title.toLowerCase().includes(query.toLowerCase());
+  });
+}
+
+// ── Render: OpenCode Home Screen ──
+function renderOpenCodeHome(currentModel, currentPower, cwd) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const cardW = Math.min(Math.max(60, cols - 10), 90);
+
+  console.clear();
+
+  // Vertical centering: push logo to ~40% of terminal height
+  const topPad = Math.max(2, Math.floor(rows * 0.25));
+  for (let i = 0; i < topPad; i++) console.log('');
+
+  // 1. Centered logo with silver→white gradient
+  const logoLines = renderLogoLines();
+  for (const line of logoLines) {
+    const rawLen = FROST_LOGO[0].length;
+    const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLen) / 2)));
+    console.log(leftPad + line);
+  }
+
+  // 2. Subtext
+  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION}${OC.reset}`;
+  const subRaw = `/help for commands · v${VERSION}`;
+  const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRaw.length) / 2)));
+  console.log('');
+  console.log(subPad + subText);
+  console.log('');
+
+  // 3. Elevated card with cyan bar (the input card)
+  const cardPad = ' '.repeat(Math.max(2, Math.floor((cols - cardW) / 2)));
+
+  // Card line 1: placeholder text
+  const placeholder = 'Ask anything... "Что такое стек этого проекта?"';
+  const l1pad = ' '.repeat(Math.max(1, cardW - 4 - placeholder.length));
+  console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' + OC.textMuted + placeholder + OC.bgCard + l1pad + ' ' + OC.reset);
+
+  // Card line 2: model tag bar
+  const tagLine = `Autonomous · ${currentModel} ${currentPower} FROST`;
+  const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));
+  console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' +
+    OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
+    OC.textWhite + currentModel + ' ' +
+    OC.textMuted + currentPower + ' ' +
+    OC.textDim + 'FROST' + OC.bgCard + l2pad + ' ' + OC.reset);
+
+  // 4. Path and shortcuts line
+  const shortCwd = cwd.length > 40 ? '...' + cwd.slice(-37) : cwd;
+  const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' + OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
+  const pathStr = OC.textDim + shortCwd + OC.reset;
+  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 26));
+  console.log(cardPad + ' ' + pathStr + midSpace + keysHint + OC.reset);
+
+  // 5. Fill space to push footer to bottom
+  const usedRows = topPad + FROST_LOGO.length + 5 + 3;
+  const bottomGap = Math.max(2, rows - usedRows - 2);
+  for (let i = 0; i < bottomGap; i++) console.log('');
+
+  // 6. Footer
+  const footLeft = ' ' + OC.green + '◧' + OC.textMuted + ' Full PC Access   ' +
+                   OC.accentBlue + '◧' + OC.textMuted + ' 1 MCP';
+  const footRight = OC.textDim + VERSION + ' ';
+  const footSpace = ' '.repeat(Math.max(2, cols - 32 - VERSION.length - 2));
+  console.log(footLeft + footSpace + footRight + OC.reset);
+}
+
+// ── Render: OpenCode Chat Screen ──
+function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const cardW = Math.max(60, cols - 6);
+
+  console.clear();
+
+  // 1. Tab bar at top
+  let tabLine = ' ';
   for (let i = 0; i < tabs.length; i++) {
     const t = tabs[i];
-    const isAct = (i === activeTabIdx);
-    const num = i + 1;
-    if (isAct) {
-      bar += `${C.cyan}[${C.green}● ${C.snow}${C.bold}${num}: ${t.title}${C.reset}${C.cyan}]${C.reset} `;
+    if (i === activeTabIdx) {
+      tabLine += OC.bgTabActive + ' ⁖ ' + OC.textWhite + t.title + ' ' + OC.reset + ' ';
     } else {
-      bar += `${C.dimGray}[${C.dimText}${num}: ${t.title}${C.dimGray}]${C.reset} `;
+      tabLine += OC.textDim + '   ' + t.title + '  ' + OC.reset;
     }
   }
-  bar += `${C.dimGray}[${C.ice}+ /new${C.dimGray}]${C.reset}`;
-  return bar;
-}
-
-function printFrostHeader(token, model, keyInfo, power = POWER_MODES[0], shift = 0, tabs = [], activeTabIdx = 0) {
-  const cwd = process.cwd().replace(/\\/g, '/');
-  const cols = process.stdout.columns || 80;
-
-  let accountLabel = 'fffwwooo123@gmail.com (Google AI Pro)';
-  if (token) {
-    const prefix = keyInfo?.prefix || maskKey(token.key);
-    accountLabel = `${token.name || prefix} (Full PC Access: Active)`;
-  }
-
-  const dividerLen = Math.min(Math.max(cols - 2, 40), 90);
-
-  console.log('');
-  console.log(renderCyberHudMonolith(shift));
-  console.log('');
-  console.log(`  ${rgb(235, 42, 54)}${C.bold}FROST CLI ${VERSION}${C.reset} · ${rgb(255, 75, 82)}● Full PC Access${C.reset}`);
-  console.log(`  ${C.dimText}${accountLabel}${C.reset}`);
-  if (tabs && tabs.length > 0) {
-    console.log(renderTabBar(tabs, activeTabIdx));
-  }
-  console.log(`  ${C.snow}● Модель: ${rgb(235, 55, 65)}${C.bold}${model}${C.reset}  ${C.snow}● Мощность: ${rgb(255, 110, 60)}${C.bold}[${power.label}]${C.reset} ${C.dimText}(${power.desc})${C.reset}`);
-  console.log(`  ${C.dimGray}${cwd}${C.reset}`);
-  console.log(`  ${C.dimGray}Горячие клавиши: ${rgb(235, 55, 65)}Shift+Tab${C.dimGray} (модель) | ${rgb(255, 110, 60)}Ctrl+Tab${C.dimGray} (мощность) | ${C.snow}Ctrl+T${C.dimGray} (новый чат) | ${rgb(235, 55, 65)}Alt+1..9${C.dimGray} (вкладка) | /help${C.reset}\n`);
-  console.log(rgb(110, 16, 24) + '─'.repeat(dividerLen) + C.reset + '\n');
-}
-
-async function animateFrostHeader(token, model, keyInfo, power = POWER_MODES[0], tabs = [], activeTabIdx = 0) {
-  console.clear();
+  tabLine += OC.textDim + '+  ' + OC.reset;
+  console.log(tabLine);
   console.log('');
 
-  // Smooth Dark Red Gradient Shimmer Animation across the Cyber Monolith HUD (12 frames)
-  if (isTTY) {
-    for (let f = 0; f < 12; f++) {
-      process.stdout.write('\x1b[H\n');
-      console.log(renderCyberHudMonolith(f * 2));
-      await sleep(30);
+  // 2. Chat messages
+  for (const m of history) {
+    if (m.role === 'user') {
+      // User message: dark card with cyan bar
+      const content = m.content;
+      const padLen = Math.max(1, cardW - 4 - content.length);
+      console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      console.log('');
+    } else if (m.role === 'assistant') {
+      // Assistant message: plain text with slight indent
+      const lines = m.content.split('\n');
+      for (const l of lines) {
+        console.log('  ' + OC.textWhite + l + OC.reset);
+      }
+      console.log('');
     }
   }
 
-  console.clear();
-  printFrostHeader(token, model, keyInfo, power, 0, tabs, activeTabIdx);
+  // 3. Status bar (above input)
+  const statusLeft = ' ' + BAR + ' ' +
+    OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
+    OC.textWhite + currentModel + ' ' +
+    OC.textMuted + currentPower + ' ' +
+    OC.textDim + 'FROST' + OC.reset;
+  console.log(statusLeft);
+
+  // 4. Footer
+  const footLeft = isBusy
+    ? ' ' + OC.accentBlue + '▰▰▰▰▰▰▰▰' + OC.textDim + ' esc interrupt'
+    : ' ' + OC.textDim + '                            ';
+  const footRight = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' + OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
+  const footSpace = ' '.repeat(Math.max(2, cols - 30 - 32));
+  console.log(footLeft + footSpace + footRight + OC.reset);
 }
 
+// ── Render: Command Palette Modal ──
+function renderCommandPalette(query, selectedIndex, tabs, activeTabIdx, currentModel, currentPower) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const modalW = Math.min(66, cols - 8);
+  const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
+
+  console.clear();
+
+  // Top spacing
+  const topSpace = Math.max(2, Math.floor(rows * 0.15));
+  for (let i = 0; i < topSpace; i++) console.log('');
+
+  // Modal header
+  const titleLeft = '  ' + OC.bold + OC.textWhite + 'Commands' + OC.reset;
+  const escRight = OC.textDim + 'esc' + OC.reset + '  ';
+  const headerPad = ' '.repeat(Math.max(1, modalW - 13));
+  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  // Search bar
+  const searchDisplay = query ? OC.textWhite + query : OC.textMuted + 'search';
+  const searchPlainLen = 4 + (query ? query.length : 6);
+  const searchPad = ' '.repeat(Math.max(0, modalW - searchPlainLen));
+  console.log(leftPad + OC.bgModal + '  ' + OC.peach + '█' + OC.reset + OC.bgModal + ' ' + searchDisplay + OC.bgModal + searchPad + OC.reset);
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  // Items
+  const filtered = getFilteredPaletteItems(query);
+  const selectables = [];
+  filtered.forEach((it, idx) => { if (it.type !== 'header') selectables.push(idx); });
+  const activeIdx = selectables[selectedIndex % (selectables.length || 1)] ?? -1;
+
+  for (let idx = 0; idx < filtered.length; idx++) {
+    const it = filtered[idx];
+    if (it.type === 'header') {
+      const hdr = '  ' + OC.catViolet + it.text + OC.reset;
+      const hdrPad = ' '.repeat(Math.max(0, modalW - 2 - it.text.length));
+      console.log(leftPad + OC.bgModal + hdr + OC.bgModal + hdrPad + OC.reset);
+    } else {
+      const isSel = (idx === activeIdx);
+      const keyHint = it.key || '';
+      const titleStr = ' ' + it.title;
+      const rightStr = keyHint ? keyHint + ' ' : '';
+      const spacer = ' '.repeat(Math.max(1, modalW - 2 - titleStr.length - rightStr.length));
+
+      if (isSel) {
+        console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + ' ' + titleStr + spacer + rightStr + ' ' + OC.reset);
+      } else {
+        console.log(leftPad + OC.bgModal + '  ' + OC.textWhite + titleStr.slice(1) + OC.bgModal + spacer + OC.textDim + rightStr + OC.bgModal + ' ' + OC.reset);
+      }
+    }
+  }
+
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  // Below modal: show current state dimmed
+  console.log('');
+  const dimStatus = OC.textDim + ' ' + BAR + ' ' + OC.textDim +
+    'Autonomous · ' + currentModel + ' ' + currentPower + ' FROST' + OC.reset;
+  console.log(dimStatus);
+  const dimFoot = OC.textDim + '                              ' +
+    'shift+tab model   ctrl+p commands  ' + OC.reset;
+  console.log(dimFoot);
+}
+
+// ── Tool Step Animation ──
 async function animateToolStep(actionText, detailText, durationMs = 300) {
   if (!isTTY) {
-    console.log(`  ${C.green}● ${actionText} ${detailText || ''}${C.reset}`);
+    console.log(`  ${OC.green}● ${actionText} ${detailText || ''}${OC.reset}`);
     return;
   }
   const spinnerFrames = ['—', '\\', '|', '/'];
-  const spinnerColors = [C.cyan, C.ice, C.snow, C.purple];
+  const spinnerColors = [OC.barCyan, rgb(121,192,255), OC.textWhite, rgb(188,140,255)];
   let frameIdx = 0;
   const start = Date.now();
 
@@ -804,16 +856,19 @@ async function animateToolStep(actionText, detailText, durationMs = 300) {
     const frame = spinnerFrames[frameIdx % spinnerFrames.length];
     const color = spinnerColors[frameIdx % spinnerColors.length];
     frameIdx++;
-    process.stdout.write(`\r\x1b[K  ${color}${frame}${C.reset} ${C.dimText}${actionText}…${C.reset}`);
+    process.stdout.write(`\r\x1b[K  ${color}${frame}${OC.reset} ${OC.textDim}${actionText}…${OC.reset}`);
     await sleep(40);
   }
 
-  process.stdout.write(`\r\x1b[K  ${C.green}● ${actionText}${C.reset}`);
-  if (detailText) process.stdout.write(` ${C.dimGray}${detailText}${C.reset}`);
+  process.stdout.write(`\r\x1b[K  ${OC.green}● ${actionText}${OC.reset}`);
+  if (detailText) process.stdout.write(` ${OC.textDim}${detailText}${OC.reset}`);
   process.stdout.write('\n');
 }
 
-// ── Interactive Single-Window Chat Loop ──
+
+// ═══════════════════════════════════════════════════════════════════════
+// INTERACTIVE SINGLE-WINDOW CHAT (OpenCode-Style)
+// ═══════════════════════════════════════════════════════════════════════
 async function runChat(options = {}) {
   let TOKEN_ID = options.tokenId || process.env.DSH_TOKEN_ID || '';
   let MODEL    = options.model   || process.env.DSH_MODEL    || '';
@@ -826,7 +881,7 @@ async function runChat(options = {}) {
   let currentToken = tokenStore.tokens.find(t => t.id === (TOKEN_ID || tokenStore.activeId)) || tokenStore.tokens[0];
 
   if (!currentToken) {
-    console.error(`\n  ${C.red}✗ Токены не найдены! Сначала добавьте токен.${C.reset}\n`);
+    console.error(`\n  ${OC.red}✗ Токены не найдены! Сначала добавьте токен.${OC.reset}\n`);
     await sleep(1500);
     return;
   }
@@ -853,28 +908,29 @@ async function runChat(options = {}) {
   }
 
   let isBusy = false;
-  let currentPowerIdx = 0; // Default High (16K tokens, deep thinking)
+  let currentPowerIdx = 0;
 
-  // ── Multi-Chat / Tabs Architecture ──
-  let tabs = [
-    {
-      id: 1,
-      title: 'Чат 1',
-      model: currentModel,
-      powerIdx: currentPowerIdx,
-      history: [],
-    }
-  ];
+  // ── Multi-Chat / Tabs ──
+  let tabs = [{
+    id: 1, title: 'New session',
+    model: currentModel, powerIdx: currentPowerIdx, history: [],
+  }];
   let activeTabIdx = 0;
   const getActiveTab = () => tabs[activeTabIdx] || tabs[0];
 
+  // ── Command Palette State ──
+  let isPaletteOpen = false;
+  let paletteIndex = 0;
+  let paletteQuery = '';
+
+  // ── Prompt String (OpenCode style: card with cyan bar) ──
   const getPromptString = () => {
-    const curTab = getActiveTab();
-    const p = POWER_MODES[curTab.powerIdx];
-    return `${C.darkLine}[${C.ice}${activeTabIdx + 1}:${curTab.title}${C.darkLine} · ${C.cyan}${curTab.model}${C.darkLine} · ${C.yellow}${p.label}${C.darkLine}]${C.reset} ${C.cyan}${C.bold}> ${C.reset}`;
+    return OC.bgCard + ' ' + BAR + ' ' + OC.textWhite;
   };
 
-  await animateFrostHeader(currentToken, currentModel, keyInfo, POWER_MODES[currentPowerIdx], tabs, activeTabIdx);
+  // ── Show Home Screen ──
+  const cwd = process.cwd().replace(/\\/g, '/');
+  renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
 
   if (isTTY) {
     try { readline.emitKeypressEvents(process.stdin); } catch {}
@@ -898,33 +954,18 @@ async function runChat(options = {}) {
     }
   };
 
-  let shimmerShift = 0;
-
-  // ── Permanent Header Redraw (Clean, Zero Spam, Live Crimson Ripple) ──
+  // ── Full Screen Redraw (OpenCode Chat View) ──
   const redrawChatView = () => {
-    shimmerShift = (shimmerShift + 2) % RED_GRADIENT.length;
-    console.clear();
     const curTab = getActiveTab();
-    printFrostHeader(currentToken, curTab.model, keyInfo, POWER_MODES[curTab.powerIdx], shimmerShift, tabs, activeTabIdx);
-
-    if (curTab.history.length > 0) {
-      for (const msg of curTab.history) {
-        if (msg.role === 'user') {
-          console.log(`\n  ${C.cyan}${C.bold}> ${C.reset}${C.snow}${msg.content}${C.reset}\n`);
-        } else if (msg.role === 'assistant') {
-          console.log(`${msg.content}\n`);
-        }
-      }
-    }
-
-    rl.setPrompt(getPromptString());
+    renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy);
     if (isTTY) {
-      process.stdout.write(`\x1b]0;FROST CLI 2.0 · [${curTab.title}] · ${curTab.model} · [${POWER_MODES[curTab.powerIdx].label}]\x07`);
+      process.stdout.write(`\x1b]0;FROST CLI · ${curTab.title} · ${curTab.model} · ${POWER_MODES[curTab.powerIdx].label}\x07`);
     }
+    rl.setPrompt(getPromptString());
     rl._refreshLine();
   };
 
-  // ── Tab Navigation & Actions ──
+  // ── Tab Actions ──
   const switchTab = (targetIdx) => {
     if (isBusy) return;
     if (targetIdx >= 0 && targetIdx < tabs.length) {
@@ -939,13 +980,10 @@ async function runChat(options = {}) {
   const createNewTab = (title = '') => {
     if (isBusy) return;
     const nextId = tabs.length > 0 ? Math.max(...tabs.map(t => t.id)) + 1 : 1;
-    const tabTitle = title.trim() || `Чат ${nextId}`;
+    const tabTitle = title.trim() || `Chat ${nextId}`;
     tabs.push({
-      id: nextId,
-      title: tabTitle,
-      model: currentModel,
-      powerIdx: currentPowerIdx,
-      history: [],
+      id: nextId, title: tabTitle,
+      model: currentModel, powerIdx: currentPowerIdx, history: [],
     });
     activeTabIdx = tabs.length - 1;
     redrawChatView();
@@ -954,10 +992,11 @@ async function runChat(options = {}) {
   const closeCurrentTab = (targetIdx = activeTabIdx) => {
     if (isBusy) return;
     if (tabs.length <= 1) {
-      tabs[0].title = 'Чат 1';
+      tabs[0].title = 'New session';
       tabs[0].history = [];
       activeTabIdx = 0;
-      redrawChatView();
+      renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
+      safePrompt();
       return;
     }
     tabs.splice(targetIdx, 1);
@@ -968,7 +1007,7 @@ async function runChat(options = {}) {
     redrawChatView();
   };
 
-  // ── Keyboard Shortcuts: Shift+Tab (Model) & Ctrl+Tab (Power) ──
+  // ── Model & Power Cycling ──
   const cycleModel = () => {
     if (isBusy) return;
     const curTab = getActiveTab();
@@ -986,38 +1025,195 @@ async function runChat(options = {}) {
     redrawChatView();
   };
 
-  // Intercept keypresses directly in readline TTY layer
+  // ── Command Palette Execution ──
+  const executePaletteAction = (itemId) => {
+    isPaletteOpen = false;
+    paletteQuery = '';
+    paletteIndex = 0;
+
+    switch (itemId) {
+      case 'switch_session':
+        switchTab((activeTabIdx + 1) % tabs.length);
+        break;
+      case 'new_session':
+        createNewTab();
+        break;
+      case 'switch_model':
+        cycleModel();
+        break;
+      case 'switch_power':
+        cyclePower();
+        break;
+      case 'token_manager':
+        redrawChatView();
+        // Trigger /tokens logic inline
+        (async () => {
+          const store = await autoDiscoverTokens();
+          console.log(`\n${C.bold}${C.snow}Сохранённые токены:${C.reset}`);
+          for (let i = 0; i < store.tokens.length; i++) {
+            const t = store.tokens[i];
+            const isCur = (t.id === currentToken.id);
+            const mark = isCur ? `${C.green}● ${C.bold}` : `  `;
+            console.log(`${mark}[${i + 1}] ${t.name}${C.reset} ${C.dimText}(${maskKey(t.key)})${C.reset}`);
+          }
+          console.log(`\n${C.dimText}Для переключения: /token <номер>${C.reset}\n`);
+          safePrompt();
+        })();
+        return;
+      case 'stats':
+        redrawChatView();
+        (async () => {
+          await animateToolStep('Querying Tokify Gateway', currentToken.name, 250);
+          const info = await verifyKey(currentToken.key).catch(() => null);
+          if (info) {
+            const Q = info.quota || {};
+            const U = info.usage || {};
+            const L = info.limits || {};
+            console.log(`\n${C.bold}${C.snow}Статистика ключа:${C.reset} ${C.ice}${info.prefix || maskKey(currentToken.key)}${C.reset}`);
+            if (Q.total != null) {
+              const used = Q.used || 0;
+              const total = Q.total || 1;
+              const pct = Math.min(100, (used / total) * 100).toFixed(1);
+              const color = pct >= 90 ? C.red : pct >= 70 ? C.yellow : C.green;
+              const width = 24;
+              const filled = Math.round((used / total) * width);
+              const bar = color + '█'.repeat(filled) + C.darkLine + '·'.repeat(width - filled) + C.reset;
+              console.log(`  Пакет токенов:   [${bar}] ${color}${pct}%${C.reset} · остаток ${C.bold}${fmtTok(Q.remaining ?? 0)}${C.reset} из ${fmtTok(total)}`);
+            } else {
+              console.log(`  Пакет токенов:   ${C.dimText}безлимит${C.reset}`);
+            }
+            if (L.rpm) console.log(`  RPM лимит:       ${C.dimText}${L.rpm} зап/мин${C.reset}`);
+            if (L.rpd) console.log(`  RPD сегодня:     ${C.dimText}${U.today_requests || 0}/${L.rpd}${C.reset}`);
+            console.log(`  Всего запросов:  ${C.dimText}${(U.total_requests || 0).toLocaleString()} · токенов: ${fmtTok(U.total_tokens || 0)}${C.reset}\n`);
+          } else {
+            console.log(`${C.red}✗ Не удалось загрузить статистику${C.reset}\n`);
+          }
+          safePrompt();
+        })();
+        return;
+      case 'clear_chat':
+        getActiveTab().history = [];
+        getActiveTab().title = 'New session';
+        renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
+        safePrompt();
+        break;
+      case 'help':
+        redrawChatView();
+        console.log('');
+        console.log(`${OC.bold}${OC.textWhite}FROST CLI Commands:${OC.reset}`);
+        console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Cycle model${C.reset}`);
+        console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Cycle power (High/Medium/Fast)${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Close current tab${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Switch between tabs${C.reset}`);
+        console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Jump to tab 1..9${C.reset}`);
+        console.log(`  ${C.cyan}/model [name]${C.reset}   ${C.dimText}— Switch model${C.reset}`);
+        console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Switch power level${C.reset}`);
+        console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Token usage & balance${C.reset}`);
+        console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— List saved tokens${C.reset}`);
+        console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Clear chat history${C.reset}`);
+        console.log(`  ${C.cyan}/exit${C.reset}           ${C.dimText}— Exit program${C.reset}`);
+        console.log('');
+        safePrompt();
+        break;
+      case 'exit':
+        console.log(`\n${C.dimText}До встречи! 👋${C.reset}\n`);
+        process.exit(0);
+        break;
+      default:
+        redrawChatView();
+        safePrompt();
+    }
+  };
+
+  // ── Keyboard Interceptor (includes Command Palette modal handling) ──
   const origTTYWrite = rl._ttyWrite.bind(rl);
   rl._ttyWrite = function(s, key) {
-    if (isShiftTab(s, key)) {
-      cycleModel();
+    // ── Command Palette Mode ──
+    if (isPaletteOpen) {
+      if (key && key.name === 'escape') {
+        isPaletteOpen = false;
+        paletteQuery = '';
+        paletteIndex = 0;
+        const curTab = getActiveTab();
+        if (curTab.history.length > 0) {
+          redrawChatView();
+        } else {
+          renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
+        }
+        safePrompt();
+        return;
+      }
+      const selectables = getSelectablePaletteItems(paletteQuery);
+      if (key && key.name === 'up') {
+        paletteIndex = (paletteIndex - 1 + selectables.length) % selectables.length;
+        renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+        return;
+      }
+      if (key && key.name === 'down') {
+        paletteIndex = (paletteIndex + 1) % selectables.length;
+        renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+        return;
+      }
+      if (key && key.name === 'return') {
+        if (selectables.length > 0) {
+          const selected = selectables[paletteIndex % selectables.length];
+          executePaletteAction(selected.id);
+        }
+        return;
+      }
+      if (key && key.name === 'backspace') {
+        paletteQuery = paletteQuery.slice(0, -1);
+        paletteIndex = 0;
+        renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+        return;
+      }
+      // Typing into search
+      if (s && s.length === 1 && s >= ' ') {
+        paletteQuery += s;
+        paletteIndex = 0;
+        renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+        return;
+      }
+      // Ignore all other keys while palette is open
       return;
     }
-    if (isCtrlTab(s, key)) {
-      cyclePower();
+
+    // ── Normal Mode Key Handlers ──
+    // Ctrl+P → Open Command Palette
+    if ((key && key.ctrl && key.name === 'p') || s === '\x10') {
+      if (isBusy) return;
+      isPaletteOpen = true;
+      paletteIndex = 0;
+      paletteQuery = '';
+      renderCommandPalette('', 0, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
       return;
     }
-    // Ctrl+T (new tab)
-    if ((key && key.ctrl && key.name === 't') || s === '\x14') {
-      createNewTab();
-      return;
+
+    // Shift+Tab → Cycle model
+    if (isShiftTab(s, key)) { cycleModel(); return; }
+
+    // Tab → Cycle power (block indentation in input)
+    if (isCtrlTab(s, key) || (key && key.name === 'tab') || s === '\t') {
+      cyclePower(); return;
     }
-    // Ctrl+W (close tab)
-    if ((key && key.ctrl && key.name === 'w') || s === '\x17') {
-      closeCurrentTab();
-      return;
-    }
-    // F6 or Ctrl+Right (next tab)
+
+    // Ctrl+T → New tab
+    if ((key && key.ctrl && key.name === 't') || s === '\x14') { createNewTab(); return; }
+
+    // Ctrl+W → Close tab
+    if ((key && key.ctrl && key.name === 'w') || s === '\x17') { closeCurrentTab(); return; }
+
+    // Ctrl+Right / Ctrl+Left → Switch tabs
     if (key && (key.name === 'f6' || (key.ctrl && key.name === 'right'))) {
-      switchTab((activeTabIdx + 1) % tabs.length);
-      return;
+      switchTab((activeTabIdx + 1) % tabs.length); return;
     }
-    // F7 or Ctrl+Left (prev tab)
     if (key && (key.name === 'f7' || (key.ctrl && key.name === 'left'))) {
-      switchTab((activeTabIdx - 1 + tabs.length) % tabs.length);
-      return;
+      switchTab((activeTabIdx - 1 + tabs.length) % tabs.length); return;
     }
-    // Alt+1..9 (jump directly to tab 1..9)
+
+    // Alt+1..9 → Jump to tab
     if (key && key.meta && /^[1-9]$/.test(key.name)) {
       const idx = parseInt(key.name, 10) - 1;
       if (idx < tabs.length) { switchTab(idx); return; }
@@ -1026,11 +1222,7 @@ async function runChat(options = {}) {
       const idx = parseInt(s[1], 10) - 1;
       if (idx < tabs.length) { switchTab(idx); return; }
     }
-    // Block any stray tab that would otherwise insert spaces/indentation
-    if ((key && key.name === 'tab') || s === '\t') {
-      cyclePower();
-      return;
-    }
+
     return origTTYWrite(s, key);
   };
 
@@ -1049,42 +1241,47 @@ async function runChat(options = {}) {
           switch (cmd.toLowerCase()) {
             case '/help':
               console.log('');
-              console.log(`${C.bold}${C.snow}Доступные команды FROST CLI (всё работает в одном окне):${C.reset}`);
-              console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Быстрое переключение модели (или F2 / /model)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+Tab${C.reset}        ${C.dimText}— Переключение мощности (High / Med / Fast или Ctrl+P / /power)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую вкладку чата (или /new)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Закрыть текущую вкладку (или /close)${C.reset}`);
-              console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Мгновенный переход на вкладку 1..9 (или F6/F7)${C.reset}`);
-              console.log(`  ${C.cyan}/tab [1-9]${C.reset}      ${C.dimText}— Переключение между вкладками чатов (/tab next /tab prev)${C.reset}`);
-              console.log(`  ${C.cyan}/new [имя]${C.reset}      ${C.dimText}— Создать новую вкладку с названием${C.reset}`);
-              console.log(`  ${C.cyan}/close [№]${C.reset}      ${C.dimText}— Закрыть вкладку по номеру${C.reset}`);
-              console.log(`  ${C.cyan}/rename <имя>${C.reset}  ${C.dimText}— Переименовать текущую вкладку чата${C.reset}`);
-              console.log(`  ${C.cyan}/tabs${C.reset}           ${C.dimText}— Список всех открытых вкладок чатов${C.reset}`);
-              console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Выбор уровня мощности модели${C.reset}`);
-              console.log(`  ${C.cyan}/model [имя]${C.reset}    ${C.dimText}— Просмотр или переключение модели${C.reset}`);
-              console.log(`  ${C.cyan}/plan <задача>${C.reset}  ${C.dimText}— Архитектурный план с автономным исполнением${C.reset}`);
-              console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— Интерактивный список токенов прямо в чате${C.reset}`);
-              console.log(`  ${C.cyan}/token <№>${C.reset}     ${C.dimText}— Переключение токена по номеру${C.reset}`);
-              console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Баланс токенов с прогресс-баром${C.reset}`);
+              console.log(`${OC.bold}${OC.textWhite}Доступные команды FROST CLI:${OC.reset}`);
+              console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Переключение модели (или F2 / /model)${C.reset}`);
+              console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Переключение мощности (High / Med / Fast)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Командная палитра (OpenCode Command Palette)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую сессию (или /new)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Закрыть текущую сессию (или /close)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Переключение между сессиями (или /tab)${C.reset}`);
+              console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Мгновенный переход на сессию 1..9${C.reset}`);
+              console.log(`  ${C.cyan}/tab [1-9]${C.reset}      ${C.dimText}— Переключение на сессию по номеру${C.reset}`);
+              console.log(`  ${C.cyan}/new [имя]${C.reset}      ${C.dimText}— Создать новую сессию${C.reset}`);
+              console.log(`  ${C.cyan}/close [№]${C.reset}      ${C.dimText}— Закрыть сессию${C.reset}`);
+              console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Выбор мощности (1: High, 2: Medium, 3: Fast)${C.reset}`);
+              console.log(`  ${C.cyan}/model [имя]${C.reset}    ${C.dimText}— Выбор модели${C.reset}`);
+              console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— Список токенов${C.reset}`);
+              console.log(`  ${C.cyan}/token <№>${C.reset}     ${C.dimText}— Переключить токен${C.reset}`);
+              console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Статистика и баланс токена${C.reset}`);
               console.log(`  ${C.cyan}/web${C.reset}            ${C.dimText}— Проверить DSH Web (http://127.0.0.1:3080)${C.reset}`);
-              console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Очистить текущий чат с перезапуском заставки${C.reset}`);
-              if (returnToMenu) {
-                console.log(`  ${C.cyan}/menu${C.reset}           ${C.dimText}— Вернуться в меню лаунчера${C.reset}`);
-              }
-              console.log(`  ${C.cyan}/exit${C.reset}           ${C.dimText}— Выход из программы${C.reset}`);
+              console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Очистить историю сессии и вернуть стартовый экран${C.reset}`);
+              console.log(`  ${C.cyan}/commands${C.reset}       ${C.dimText}— Открыть палитру команд (Ctrl+P)${C.reset}`);
+              console.log(`  ${C.cyan}/exit${C.reset}           ${C.dimText}— Выход${C.reset}`);
               console.log('');
               safePrompt();
               return;
 
+            case '/commands':
+            case '/menu':
+              isPaletteOpen = true;
+              paletteIndex = 0;
+              paletteQuery = '';
+              renderCommandPalette('', 0, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+              return;
+
             case '/tabs': {
-              console.log(`\n${C.bold}${C.snow}Открытые вкладки чатов (${tabs.length}):${C.reset}`);
+              console.log(`\n${OC.bold}${OC.textWhite}Открытые сессии (${tabs.length}):${OC.reset}`);
               for (let i = 0; i < tabs.length; i++) {
                 const t = tabs[i];
                 const isCur = (i === activeTabIdx);
-                const mark = isCur ? `${C.green}● ${C.bold}` : `  ${C.dimGray}`;
-                console.log(`${mark}[${i + 1}] ${t.title}${C.reset} · ${C.cyan}${t.model}${C.reset} · ${C.yellow}[${POWER_MODES[t.powerIdx].label}]${C.reset} · ${C.dimText}${t.history.length} сообщений${C.reset}`);
+                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
+                console.log(`${mark}[${i + 1}] ${t.title}${OC.reset} · ${OC.barCyan}${t.model}${OC.reset} · ${OC.peach}[${POWER_MODES[t.powerIdx].label}]${OC.reset} · ${OC.textDim}${t.history.length} сообщ.${OC.reset}`);
               }
-              console.log(`\n${C.dimText}Переключение: /tab <№>, Alt+1..9, F6/F7 | Создать: /new | Закрыть: /close${C.reset}\n`);
+              console.log('');
               safePrompt();
               return;
             }
@@ -1092,26 +1289,16 @@ async function runChat(options = {}) {
             case '/tab':
             case '/t': {
               if (!argStr) {
-                console.log(`${C.yellow}Укажите номер вкладки: /tab <1-${tabs.length}> или next/prev${C.reset}\n`);
+                console.log(`${OC.peach}Укажите номер сессии: /tab <1-${tabs.length}> или next/prev${OC.reset}\n`);
                 safePrompt();
                 return;
               }
               const clean = argStr.toLowerCase();
-              if (clean === 'next' || clean === 'n') {
-                switchTab((activeTabIdx + 1) % tabs.length);
-                return;
-              }
-              if (clean === 'prev' || clean === 'p') {
-                switchTab((activeTabIdx - 1 + tabs.length) % tabs.length);
-                return;
-              }
+              if (clean === 'next' || clean === 'n') { switchTab((activeTabIdx + 1) % tabs.length); return; }
+              if (clean === 'prev' || clean === 'p') { switchTab((activeTabIdx - 1 + tabs.length) % tabs.length); return; }
               const num = parseInt(clean, 10);
-              if (!isNaN(num) && num >= 1 && num <= tabs.length) {
-                switchTab(num - 1);
-                return;
-              } else {
-                console.log(`${C.red}✗ Вкладка #${argStr} не найдена. Всего вкладок: ${tabs.length}${C.reset}\n`);
-              }
+              if (!isNaN(num) && num >= 1 && num <= tabs.length) { switchTab(num - 1); return; }
+              console.log(`${OC.red}✗ Сессия #${argStr} не найдена. Всего сессий: ${tabs.length}${OC.reset}\n`);
               safePrompt();
               return;
             }
@@ -1131,13 +1318,12 @@ async function runChat(options = {}) {
             }
 
             case '/rename': {
-              if (!argStr) {
-                console.log(`${C.yellow}Укажите новое название: /rename <название>${C.reset}\n`);
-              } else {
+              if (argStr) {
                 getActiveTab().title = argStr.slice(0, 24);
                 redrawChatView();
                 return;
               }
+              console.log(`${OC.peach}Укажите новое название: /rename <название>${OC.reset}\n`);
               safePrompt();
               return;
             }
@@ -1155,33 +1341,30 @@ async function runChat(options = {}) {
                   getActiveTab().powerIdx = target;
                   redrawChatView();
                   return;
-                } else {
-                  console.log(`${C.red}✗ Неверный режим. Доступные: 1 (High), 2 (Medium), 3 (Fast)${C.reset}\n`);
                 }
-              } else {
-                console.log(`\n${C.bold}${C.snow}Режимы мощности модели (переключение: Ctrl+Tab или /power <№>):${C.reset}`);
-                for (let i = 0; i < POWER_MODES.length; i++) {
-                  const p = POWER_MODES[i];
-                  const isCur = (i === currentPowerIdx);
-                  const mark = isCur ? `${C.green}● ${C.bold}` : `  `;
-                  console.log(`${mark}[${i + 1}] ${C.yellow}${p.label}${C.reset} — ${C.dimText}${p.desc}${C.reset}`);
-                }
-                console.log(`\n${C.dimText}Сочетания клавиш: Ctrl+Tab (или F3 / Ctrl+P) для мгновенной смены мощности!${C.reset}\n`);
               }
+              console.log(`\n${OC.bold}${OC.textWhite}Режимы мощности модели:${OC.reset}`);
+              for (let i = 0; i < POWER_MODES.length; i++) {
+                const p = POWER_MODES[i];
+                const isCur = (i === currentPowerIdx);
+                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
+                console.log(`${mark}[${i + 1}] ${OC.peach}${p.label}${OC.reset} — ${OC.textDim}${p.desc}${OC.reset}`);
+              }
+              console.log('');
               safePrompt();
               return;
             }
 
             case '/tokens': {
               const store = await autoDiscoverTokens();
-              console.log(`\n${C.bold}${C.snow}Сохранённые токены:${C.reset}`);
+              console.log(`\n${OC.bold}${OC.textWhite}Сохранённые токены:${OC.reset}`);
               for (let i = 0; i < store.tokens.length; i++) {
                 const t = store.tokens[i];
                 const isCur = (t.id === currentToken.id);
-                const mark = isCur ? `${C.green}● ${C.bold}` : `  `;
-                console.log(`${mark}[${i + 1}] ${t.name}${C.reset} ${C.dimText}(${maskKey(t.key)})${C.reset}`);
+                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
+                console.log(`${mark}[${i + 1}] ${t.name}${OC.reset} ${OC.textDim}(${maskKey(t.key)})${OC.reset}`);
               }
-              console.log(`\n${C.dimText}Для переключения введите: /token <номер>${C.reset}\n`);
+              console.log(`\n${OC.textDim}Для переключения: /token <номер>${OC.reset}\n`);
               safePrompt();
               return;
             }
@@ -1197,43 +1380,39 @@ async function runChat(options = {}) {
                 await animateToolStep('Active Token Updated', `[${currentToken.name}] (${maskKey(currentToken.key)})`, 200);
                 console.log('');
               } else {
-                console.log(`${C.red}✗ Неверный номер. Введите /tokens для списка токенов.${C.reset}\n`);
+                console.log(`${OC.red}✗ Неверный номер. Введите /tokens для списка токенов.${OC.reset}\n`);
               }
               safePrompt();
               return;
             }
 
-            case '/model':
+            case '/model': {
               if (argStr) {
                 let found = null;
                 const num = parseInt(argStr, 10);
-                if (!isNaN(num) && availableModels[num - 1]) {
-                  found = availableModels[num - 1];
-                } else {
-                  found = availableModels.find(m => m.toLowerCase().includes(argStr.toLowerCase()));
-                }
+                if (!isNaN(num) && availableModels[num - 1]) found = availableModels[num - 1];
+                else found = availableModels.find(m => m.toLowerCase().includes(argStr.toLowerCase()));
 
                 if (found) {
                   currentModel = found;
                   getActiveTab().model = found;
                   redrawChatView();
                   return;
-                } else {
-                  console.log(`${C.red}✗ Модель не найдена: ${argStr}${C.reset}`);
-                  console.log(`${C.dimText}Доступные: ${availableModels.join(', ')}${C.reset}\n`);
                 }
+                console.log(`${OC.red}✗ Модель не найдена: ${argStr}${OC.reset}`);
               } else {
-                console.log(`\n${C.bold}${C.snow}Доступные модели на ключе (${availableModels.length}):${C.reset}`);
+                console.log(`\n${OC.bold}${OC.textWhite}Доступные модели (${availableModels.length}):${OC.reset}`);
                 const curM = getActiveTab().model;
                 for (let i = 0; i < availableModels.length; i++) {
                   const m = availableModels[i];
-                  const activeMark = (m === curM) ? `${C.green}● ${C.bold}` : `  ${C.dimGray}`;
-                  console.log(`${activeMark}[${i + 1}] ${m}${C.reset}`);
+                  const activeMark = (m === curM) ? `${OC.green}● ${OC.bold}` : `  ${OC.textDim}`;
+                  console.log(`${activeMark}[${i + 1}] ${m}${OC.reset}`);
                 }
-                console.log(`\n${C.dimText}Сменить: нажмите Shift+Tab (или F2), либо введите: /model <номер|имя>${C.reset}\n`);
+                console.log(`\n${OC.textDim}Сменить: Shift+Tab или /model <номер|имя>${OC.reset}\n`);
               }
               safePrompt();
               return;
+            }
 
             case '/stats': {
               await animateToolStep('Querying Tokify Gateway', currentToken.name, 250);
@@ -1242,24 +1421,24 @@ async function runChat(options = {}) {
                 const Q = info.quota || {};
                 const U = info.usage || {};
                 const L = info.limits || {};
-                console.log(`\n${C.bold}${C.snow}Статистика ключа:${C.reset} ${C.ice}${info.prefix || maskKey(currentToken.key)}${C.reset} ${C.dimText}(${info.label || currentToken.name})${C.reset}`);
+                console.log(`\n${OC.bold}${OC.textWhite}Статистика ключа:${OC.reset} ${OC.barCyan}${info.prefix || maskKey(currentToken.key)}${OC.reset}`);
                 if (Q.total != null) {
                   const used = Q.used || 0;
                   const total = Q.total || 1;
                   const pct = Math.min(100, (used / total) * 100).toFixed(1);
-                  const color = pct >= 90 ? C.red : pct >= 70 ? C.yellow : C.green;
+                  const color = pct >= 90 ? OC.red : pct >= 70 ? OC.yellow : OC.green;
                   const width = 24;
                   const filled = Math.round((used / total) * width);
-                  const bar = color + '█'.repeat(filled) + C.darkLine + '·'.repeat(width - filled) + C.reset;
-                  console.log(`  Пакет токенов:   [${bar}] ${color}${pct}%${C.reset} · остаток ${C.bold}${fmtTok(Q.remaining ?? 0)}${C.reset} из ${fmtTok(total)}`);
+                  const bar = color + '█'.repeat(filled) + OC.textDim + '·'.repeat(width - filled) + OC.reset;
+                  console.log(`  Пакет токенов:   [${bar}] ${color}${pct}%${OC.reset} · остаток ${OC.bold}${fmtTok(Q.remaining ?? 0)}${OC.reset} из ${fmtTok(total)}`);
                 } else {
-                  console.log(`  Пакет токенов:   ${C.dimText}безлимит${C.reset}`);
+                  console.log(`  Пакет токенов:   ${OC.textDim}безлимит${OC.reset}`);
                 }
-                if (L.rpm) console.log(`  RPM лимит:       ${C.dimText}${L.rpm} зап/мин${C.reset}`);
-                if (L.rpd) console.log(`  RPD сегодня:     ${C.dimText}${U.today_requests || 0}/${L.rpd}${C.reset}`);
-                console.log(`  Всего запросов:  ${C.dimText}${(U.total_requests || 0).toLocaleString()} · токенов: ${fmtTok(U.total_tokens || 0)}${C.reset}\n`);
+                if (L.rpm) console.log(`  RPM лимит:       ${OC.textDim}${L.rpm} зап/мин${OC.reset}`);
+                if (L.rpd) console.log(`  RPD сегодня:     ${OC.textDim}${U.today_requests || 0}/${L.rpd}${OC.reset}`);
+                console.log(`  Всего запросов:  ${OC.textDim}${(U.total_requests || 0).toLocaleString()} · токенов: ${fmtTok(U.total_tokens || 0)}${OC.reset}\n`);
               } else {
-                console.log(`${C.red}✗ Не удалось загрузить статистику${C.reset}\n`);
+                console.log(`${OC.red}✗ Не удалось загрузить статистику${OC.reset}\n`);
               }
               safePrompt();
               return;
@@ -1268,26 +1447,26 @@ async function runChat(options = {}) {
             case '/web': {
               const alive = await isDshWebAlive();
               if (alive) {
-                console.log(`\n${C.green}● DSH Web активен в фоне:${C.reset} ${C.cyan}http://127.0.0.1:3080/${C.reset}`);
+                console.log(`\n${OC.green}● DSH Web активен в фоне:${OC.reset} ${OC.barCyan}http://127.0.0.1:3080/${OC.reset}\n`);
               } else {
                 await animateToolStep('Starting DSH Web in background', 'port 3080', 400);
                 await ensureDshWebSilent();
-                console.log(`${C.green}● DSH Web запущен в фоне:${C.reset} ${C.cyan}http://127.0.0.1:3080/${C.reset}`);
+                console.log(`\n${OC.green}● DSH Web запущен в фоне:${OC.reset} ${OC.barCyan}http://127.0.0.1:3080/${OC.reset}\n`);
               }
-              console.log('');
               safePrompt();
               return;
             }
 
             case '/clear':
               getActiveTab().history = [];
-              await animateFrostHeader(currentToken, getActiveTab().model, keyInfo, POWER_MODES[getActiveTab().powerIdx], tabs, activeTabIdx);
+              getActiveTab().title = 'New session';
+              renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
               safePrompt();
               return;
 
             case '/exit':
             case '/quit':
-              console.log(`\n${C.dimText}До встречи! 👋${C.reset}\n`);
+              console.log(`\n${OC.textDim}До встречи! 👋${OC.reset}\n`);
               rl.close();
               resolve('exit');
               process.exit(0);
@@ -1297,13 +1476,13 @@ async function runChat(options = {}) {
               break;
 
             default:
-              console.log(`${C.red}Неизвестная команда. Введите /help для списка.${C.reset}\n`);
+              console.log(`${OC.red}Неизвестная команда. Введите /help для списка.${OC.reset}\n`);
               safePrompt();
               return;
           }
         }
 
-        // ── Autonomous Agent Processing with Full PC Access ──
+        // ── Autonomous Agent Loop (Full PC Access) ──
         isBusy = true;
         rl.pause();
 
@@ -1311,14 +1490,13 @@ async function runChat(options = {}) {
         const userPrompt = isPlan ? input.replace(/^\/plan\s*/i, '').trim() : input;
 
         if (!userPrompt) {
-          console.log(`${C.yellow}Укажите задачу: /plan <описание>${C.reset}\n`);
+          console.log(`${OC.peach}Укажите задачу: /plan <описание>${OC.reset}\n`);
           safePrompt();
           return;
         }
 
         const curTab = getActiveTab();
-        // Auto-title tab from the first query if name is still generic
-        if (/^Чат \d+$/i.test(curTab.title)) {
+        if (/^New session$|^Chat \d+$/i.test(curTab.title)) {
           const words = userPrompt.split(/\s+/).slice(0, 4).join(' ');
           if (words.length > 0) curTab.title = words.slice(0, 18);
         }
@@ -1338,6 +1516,9 @@ async function runChat(options = {}) {
         curTab.history.push({ role: 'user', content: userPrompt });
         if (curTab.history.length > 30) curTab.history = curTab.history.slice(-30);
 
+        // Repaint OpenCode chat screen immediately showing the user card
+        renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true);
+
         const messages = [
           { role: 'system', content: systemInstruction },
           ...curTab.history,
@@ -1345,7 +1526,7 @@ async function runChat(options = {}) {
 
         const startTime = Date.now();
         const thinkingFrames = ['—', '\\', '|', '/'];
-        const thinkingColors = [C.cyan, C.ice, C.snow, C.purple];
+        const thinkingColors = [OC.barCyan, rgb(121, 192, 255), OC.textWhite, rgb(188, 140, 255)];
         let pulseIdx = 0;
         let timerId = null;
 
@@ -1355,29 +1536,25 @@ async function runChat(options = {}) {
             const symbol = thinkingFrames[pulseIdx % thinkingFrames.length];
             const color  = thinkingColors[pulseIdx % thinkingColors.length];
             pulseIdx++;
-            process.stdout.write(`\r\x1b[K  ${color}${symbol}${C.reset} ${C.dimText}Thought for ${elapsed}…${C.reset}`);
+            process.stdout.write(`\r\x1b[K  ${color}${symbol}${OC.reset} ${OC.textDim}Thought for ${elapsed}…${OC.reset}`);
           }, 80);
-        } else {
-          process.stdout.write(`  ${C.dimText}Thought for 0s…${C.reset}\n`);
         }
 
-        // ── Autonomous Agent Loop (Handles Tool Calls with Live Execution) ──
         let agentLoopDone = false;
         let finalResponseText = '';
 
         while (!agentLoopDone) {
           const completion = await callChatWithTools(messages, curMod, currentToken.key, curPower);
           const choice = completion.choices?.[0];
-
           if (!choice) throw new Error('Empty response from model API');
 
-          // If model wants to execute system tools on the PC:
+          // Tool calls branch
           if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
             if (timerId) { clearInterval(timerId); timerId = null; }
             if (isTTY) process.stdout.write('\r\x1b[K');
 
             const elapsed = formatDuration(Date.now() - startTime);
-            console.log(`  ${C.cyan}●${C.reset} ${C.dimText}Thought for ${elapsed} (Analyzing system state and executing operations...)${C.reset}`);
+            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed} (Analyzing system state and executing operations...)${OC.reset}`);
 
             messages.push(choice.message);
 
@@ -1399,10 +1576,7 @@ async function runChat(options = {}) {
                 actionDisplay = `Inspected directory (${fnArgs.path || '.'})`;
               }
 
-              // Animate the tool execution badge!
               await animateToolStep(actionDisplay, detailDisplay, 250);
-
-              // Execute tool on Windows PC!
               const toolResult = executeSystemTool(fnName, fnArgs);
 
               messages.push({
@@ -1412,25 +1586,24 @@ async function runChat(options = {}) {
               });
             }
 
-            console.log(`  ${C.cyan}●${C.reset} ${C.dimText}Thought for 4s${C.reset}\n`);
-            // Continue agent loop with tool results!
+            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for 4s${OC.reset}\n`);
             continue;
           }
 
-          // When no more tool calls: model returned final answer
+          // Direct final response
           if (timerId) { clearInterval(timerId); timerId = null; }
           if (isTTY) process.stdout.write('\r\x1b[K');
 
           if (!finalResponseText && messages.length === curTab.history.length + 1) {
             const elapsed = formatDuration(Date.now() - startTime);
-            console.log(`  ${C.cyan}●${C.reset} ${C.dimText}Thought for ${elapsed} (Direct analysis completed)${C.reset}\n`);
+            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed} (Direct analysis completed)${OC.reset}\n`);
           }
 
           finalResponseText = choice.message?.content || '';
           agentLoopDone = true;
         }
 
-        // Print final response text cleanly
+        // Print final response text
         console.log(finalResponseText);
         console.log('');
 
@@ -1441,26 +1614,24 @@ async function runChat(options = {}) {
       } catch (err) {
         if (timerId) clearInterval(timerId);
         if (isTTY) process.stdout.write('\r\x1b[K');
-        console.log(`\n  ${C.red}✗ Ошибка API: ${err.message}${C.reset}\n`);
+        console.log(`\n  ${OC.red}✗ Ошибка API: ${err.message}${OC.reset}\n`);
         const curTab = getActiveTab();
         if (curTab && curTab.history.length > 0) curTab.history.pop();
       } finally {
         isBusy = false;
-        console.log('');
+        redrawChatView();
         safePrompt();
       }
     });
 
     rl.on('close', async () => {
-      while (isBusy) {
-        await sleep(80);
-      }
+      while (isBusy) await sleep(80);
       resolve('close');
     });
   });
 }
 
-// ── Interactive Single-Window Launcher Menu ──
+// ── Interactive Single-Window Launcher Menu (Fallback / --menu) ──
 function renderBanner(activeToken, webActive) {
   console.clear();
   const webMark = webActive ? chalk.green('● Активен в фоне (3080)') : chalk.yellow('○ Не запущен');
@@ -1500,7 +1671,7 @@ async function menuLoop() {
       message: 'Что делаем (всё работает в одном окне):',
       pageSize: 15,
       choices: [
-        { name: '🚀  [1] Запустить FROST CLI Чат (прямо здесь)', value: '1click' },
+        { name: '🚀  [1] Запустить FROST CLI Чат (OpenCode UI)', value: '1click' },
         { name: '🔑  [2] Выбрать токен из сохранённых', value: 'select' },
         { name: '➕  [3] Добавить новый API токен (sk-…)', value: 'add' },
         new inquirer.Separator(),
@@ -1548,35 +1719,24 @@ async function menuLoop() {
             value: t.id,
           };
         });
-        choices.push(new inquirer.Separator(), { name: '↩ Назад', value: 'back' });
 
-        const { chosenId } = await inquirer.prompt([{
-          type: 'list', name: 'chosenId', message: 'Выберите токен:', pageSize: 15, choices,
+        const { selectedId } = await inquirer.prompt([{
+          type: 'list', name: 'selectedId', message: 'Выберите активный токен:', choices,
         }]);
-
-        if (chosenId !== 'back') {
-          data.activeId = chosenId;
-          saveTokens(data);
-          const selected = data.tokens.find(t => t.id === chosenId);
-          syncDshSettingsFull(selected.key);
-          console.log(chalk.green(`\n  ✓ Активным выбран: ${chalk.bold(selected.name)}\n`));
-
-          const { launchNow } = await inquirer.prompt([{
-            type: 'confirm', name: 'launchNow', message: 'Открыть FROST CLI прямо сейчас?', default: true,
-          }]);
-          if (launchNow) {
-            await runChat({ tokenId: selected.id, returnToMenu: true });
-          }
-        }
+        data.activeId = selectedId;
+        saveTokens(data);
+        const newAct = data.tokens.find(t => t.id === selectedId);
+        if (newAct) syncDshSettingsFull(newAct.key);
+        console.log(chalk.green(`\n  ✓ Активный токен обновлён: ${newAct?.name}\n`));
+        await pause();
         break;
       }
 
       case 'add': {
         const { key } = await inquirer.prompt([{
-          type: 'password', name: 'key', message: 'Введите API-ключ Tokify / FunPay (sk-…):', mask: '*',
-          validate: (v) => v?.trim().startsWith('sk-') || 'Ключ должен начинаться с sk-',
+          type: 'input', name: 'key', message: 'Введите API-ключ (sk-…):',
+          validate: v => (v && v.trim().startsWith('sk-')) ? true : 'Ключ должен начинаться с "sk-"',
         }]);
-
         const cleanKey = key.trim();
         const spin = ora('Проверяю ключ на tokify.sale…').start();
         let info;
@@ -1700,11 +1860,12 @@ async function menuLoop() {
 // ── Entrypoint Dispatcher ──
 (async () => {
   const argv = process.argv.slice(2);
-  if (argv.includes('chat') || argv.includes('--chat') || argv.some(a => a.startsWith('/plan'))) {
+  if (argv.includes('--menu')) {
+    await menuLoop();
+  } else {
+    // Default: Boot directly into the OpenCode-style interface!
     await runChat({ returnToMenu: false });
     process.exit(0);
-  } else {
-    await menuLoop();
   }
 })().catch(e => {
   console.error('Ошибка:', e.message || e);
