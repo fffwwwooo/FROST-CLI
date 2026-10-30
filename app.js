@@ -655,6 +655,143 @@ function getSelectablePaletteItems(query) {
   });
 }
 
+function stripAnsi(str) {
+  return (str || '').replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+}
+
+// ── Markdown Lexer & Syntax Highlighter (OpenCode Style) ──
+function highlightCodeLine(line, lang) {
+  if (/^\s*(#|\/\/|--)/.test(line)) {
+    return rgb(110, 118, 129) + line + OC.reset;
+  }
+  const cKeyword  = rgb(210, 168, 255); // #d2a8ff purple
+  const cString   = rgb(126, 231, 135); // #7ee787 green
+  const cNumber   = rgb(255, 166, 87);  // #ffa657 orange
+  const cFunction = rgb(121, 192, 255); // #79c0ff light blue
+  const cKey      = rgb(121, 192, 255); // #79c0ff light blue
+  const cReset    = OC.reset;
+
+  const keywords = new Set([
+    'def', 'class', 'return', 'import', 'from', 'as', 'function', 'const', 'let', 'var',
+    'if', 'else', 'elif', 'for', 'while', 'try', 'catch', 'except', 'finally', 'async',
+    'await', 'yield', 'null', 'None', 'True', 'False', 'true', 'false', 'this', 'self',
+    'new', 'typeof', 'void', 'in', 'of', 'with', 'lambda', 'pass', 'break', 'continue'
+  ]);
+  const builtins = new Set(['print', 'len', 'range', 'console', 'log', 'str', 'int', 'dict', 'list', 'set']);
+
+  const tokenRegex = /(f?["'`][^"'`]*["'`]|\b\d+(?:\.\d+)?\b|\b[a-zA-Z_]\w*\b|[^\w\s"'`]+|\s+)/g;
+  let out = '';
+  let match;
+
+  while ((match = tokenRegex.exec(line)) !== null) {
+    const tok = match[0];
+    const nextChar = line[tokenRegex.lastIndex];
+    if (/^f?["'`]/.test(tok)) {
+      out += cString + tok + cReset;
+    } else if (/^\d+(?:\.\d+)?$/.test(tok)) {
+      out += cNumber + tok + cReset;
+    } else if (/^[a-zA-Z_]\w*$/.test(tok)) {
+      if (keywords.has(tok)) {
+        out += cKeyword + tok + cReset;
+      } else if (builtins.has(tok) || nextChar === '(') {
+        out += cFunction + tok + cReset;
+      } else if (lang === 'json' || nextChar === ':') {
+        out += cKey + tok + cReset;
+      } else {
+        out += tok;
+      }
+    } else {
+      out += tok;
+    }
+  }
+  return out;
+}
+
+function formatInlineMarkdown(text) {
+  if (!text) return '';
+  text = text.replace(/`([^`]+)`/g, (_, code) => rgb(121, 192, 255) + code + OC.reset);
+  text = text.replace(/(\*\*\*|___)(.*?)\1/g, (_, __, b) => '\x1b[1m\x1b[3m' + OC.textWhite + b + '\x1b[22m\x1b[23m' + OC.reset);
+  text = text.replace(/(\*\*|__)(.*?)\1/g, (_, __, b) => '\x1b[1m' + OC.textWhite + b + '\x1b[22m' + OC.reset);
+  text = text.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1\x1b[3m$2\x1b[23m$3');
+  text = text.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1\x1b[3m$2\x1b[23m$3');
+  text = text.replace(/~~(.*?)~~/g, (_, b) => '\x1b[9m' + OC.textDim + b + '\x1b[29m' + OC.reset);
+  return text;
+}
+
+function renderMarkdownBlocks(content, cols) {
+  cols = cols || 80;
+  const lines = (content || '').split('\n');
+  const out = [];
+  let inCode = false;
+  let codeLang = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim().startsWith('```')) {
+      if (!inCode) {
+        inCode = true;
+        codeLang = l.trim().slice(3).trim();
+        if (codeLang) {
+          out.push('  ' + OC.textDim + codeLang + ':' + OC.reset);
+        }
+      } else {
+        inCode = false;
+        codeLang = '';
+        out.push('');
+      }
+      continue;
+    }
+
+    if (inCode) {
+      out.push('    ' + highlightCodeLine(l, codeLang));
+      continue;
+    }
+
+    const hMatch = l.match(/^(#{1,4})\s+(.+)$/);
+    if (hMatch) {
+      const level = hMatch[1].length;
+      const text = hMatch[2];
+      if (level <= 2) {
+        out.push('\n  ' + OC.bold + OC.barCyan + formatInlineMarkdown(text) + OC.reset);
+      } else {
+        out.push('\n  ' + OC.bold + OC.textWhite + formatInlineMarkdown(text) + OC.reset);
+      }
+      continue;
+    }
+
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(l.trim())) {
+      out.push('  ' + OC.textDim + '─'.repeat(Math.min(48, cols - 8)) + OC.reset);
+      continue;
+    }
+
+    if (/^>\s*(.*)$/.test(l)) {
+      const qText = l.replace(/^>\s*/, '');
+      out.push('  ' + OC.barCyan + '│ ' + OC.textMuted + formatInlineMarkdown(qText) + OC.reset);
+      continue;
+    }
+
+    if (/^(\s*)[-*]\s+(.+)$/.test(l)) {
+      const m = l.match(/^(\s*)[-*]\s+(.+)$/);
+      out.push('  ' + m[1] + OC.barCyan + '• ' + OC.textWhite + formatInlineMarkdown(m[2]) + OC.reset);
+      continue;
+    }
+
+    if (/^(\s*)(\d+)\.\s+(.+)$/.test(l)) {
+      const m = l.match(/^(\s*)(\d+)\.\s+(.+)$/);
+      out.push('  ' + m[1] + OC.barCyan + m[2] + '. ' + OC.textWhite + formatInlineMarkdown(m[3]) + OC.reset);
+      continue;
+    }
+
+    if (l.trim() === '') {
+      if (out.length > 0 && out[out.length - 1] !== '') out.push('');
+    } else {
+      out.push('  ' + OC.textWhite + formatInlineMarkdown(l) + OC.reset);
+    }
+  }
+
+  return out;
+}
+
 // ── Smooth Running Shimmer Beam with Glowing Trail ──
 function renderShimmerBeam(width = 16, pos = 0) {
   const trail = [
@@ -765,10 +902,13 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   console.log('');
 }
 
-// ── Render: OpenCode Chat Screen ──
-function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy) {
-  const cols = Math.min(process.stdout.columns || 90, 100);
-  const cardW = Math.max(60, cols - 6);
+// ── Render: OpenCode Chat Screen (with full Markdown, Syntax Highlighting & 2-Column Sidebar) ──
+function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '') {
+  const cols = process.stdout.columns || 90;
+  const isWide = cols >= 105;
+  const sideW = isWide ? 28 : 0;
+  const mainW = isWide ? (cols - sideW - 4) : Math.max(50, cols - 4);
+  const curTab = tabs[activeTabIdx] || { title: 'New session', history: [] };
 
   console.clear();
 
@@ -776,34 +916,92 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
-  // 2. Chat messages
-  for (const m of history) {
+  // 2. Chat message lines
+  const chatLines = [];
+
+  for (let idx = 0; idx < history.length; idx++) {
+    const m = history[idx];
     if (m.role === 'user') {
-      const content = m.content;
-      const padLen = Math.max(1, cardW - 4 - content.length);
-      console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
-      console.log('');
+      const content = m.content || '';
+      const padLen = Math.max(1, mainW - 4 - stripAnsi(content).length);
+      chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      chatLines.push('');
     } else if (m.role === 'assistant') {
-      const lines = m.content.split('\n');
-      for (const l of lines) {
-        console.log('  ' + OC.textWhite + l + OC.reset);
+      // OpenCode collapsed thought indicator (+ Thought · Xs)
+      const thoughtDur = m.thought || m.duration || '2.8s';
+      chatLines.push('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
+
+      // Markdown formatted blocks
+      const blocks = renderMarkdownBlocks(m.content, mainW);
+      for (const b of blocks) {
+        chatLines.push(b);
       }
-      console.log('');
+
+      // OpenCode assistant message footer
+      const dur = m.duration || '3.2s';
+      const spd = m.speed || '38.4 tok/s';
+      const meta = '  ' + OC.barCyan + 'Autonomous' + OC.textDim + ' · ' +
+        OC.textWhite + (m.model || currentModel) + ' ' + (m.power || currentPower) + OC.textDim +
+        ' · ' + dur + ' · ' + spd + OC.reset;
+      chatLines.push(meta);
+      chatLines.push('');
     }
   }
 
-  // 3. Status bar (above input)
+  // 3. Right Sidebar lines (visible when window is wide >= 105 columns)
+  let sideLines = [];
+  if (isWide) {
+    const usedTokens = curTab.tokens || 8483;
+    const maxTokens = 200000;
+    const pct = Math.max(1, Math.min(100, Math.round((usedTokens / maxTokens) * 100)));
+    const shortPath = cwd ? (cwd.length > 26 ? '...' + cwd.slice(-23) : cwd) : '';
+
+    sideLines = [
+      OC.bold + OC.textWhite + curTab.title + OC.reset,
+      '',
+      OC.textDim + 'Context' + OC.reset,
+      OC.textWhite + usedTokens.toLocaleString() + ' tokens' + OC.reset,
+      OC.textDim + pct + '% used' + OC.reset,
+      '',
+      OC.textDim + 'PC Access' + OC.reset,
+      OC.green + '● ' + OC.textWhite + 'Full Root' + OC.reset,
+      '',
+      OC.textDim + 'MCP' + OC.reset,
+      OC.green + '● ' + OC.textWhite + '1 MCP' + '   ' + OC.textDim + 'Connected' + OC.reset,
+      '',
+      shortPath ? OC.textDim + shortPath + OC.reset : '',
+    ];
+  }
+
+  // 4. Print combined lines
+  const totalRows = Math.max(chatLines.length, sideLines.length);
+  for (let r = 0; r < totalRows; r++) {
+    const left = chatLines[r] || '';
+    if (isWide) {
+      const right = sideLines[r] || '';
+      const leftVis = stripAnsi(left).length;
+      const spacer = ' '.repeat(Math.max(2, mainW - leftVis + 3));
+      console.log(left + spacer + right);
+    } else {
+      console.log(left);
+    }
+  }
+
+  // 5. Input status bar (above input prompt)
   const statusLeft = ' ' + BAR + ' ' +
     OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
     OC.peach + currentPower + OC.reset;
   console.log(statusLeft);
 
-  // 4. Footer: when idle, NO esc interrupt! Only right-aligned shortcuts, never wrapping!
-  const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
-                   OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
-  const footSpace = ' '.repeat(Math.max(2, cols - 32));
-  console.log(footSpace + keysHint + OC.reset);
+  // 6. Footer: token usage, directory and keyboard shortcuts
+  const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '';
+  const tokenStats = `${((curTab.tokens || 8483) / 1000).toFixed(1)}K (${Math.max(1, Math.round(((curTab.tokens || 8483) / 200000) * 100))}%)`;
+  const footRight = OC.textDim + tokenStats + '   ' +
+                    OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
+                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands  ';
+  const midSpace = ' '.repeat(Math.max(2, (isWide ? mainW : cols) - shortCwd.length - stripAnsi(footRight).length));
+  console.log(' ' + OC.textDim + shortCwd + midSpace + footRight + OC.reset);
 }
 
 // ── Render: Command Palette Modal ──
@@ -991,7 +1189,7 @@ async function runChat(options = {}) {
     if (curTab.history.length === 0) {
       renderOpenCodeHome(curTab.model, POWER_MODES[curTab.powerIdx].label, cwd, tabs, activeTabIdx);
     } else {
-      renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy);
+      renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy, cwd);
     }
     if (isTTY) {
       process.stdout.write(`\x1b]0;FROST CLI · ${curTab.title} · ${curTab.model} · ${POWER_MODES[curTab.powerIdx].label}\x07`);
@@ -1615,7 +1813,7 @@ async function runChat(options = {}) {
         if (curTab.history.length > 30) curTab.history = curTab.history.slice(-30);
 
         // Repaint OpenCode chat screen immediately showing the user card
-        renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true);
+        renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true, cwd);
 
         const messages = [
           { role: 'system', content: systemInstruction },
@@ -1705,12 +1903,21 @@ async function runChat(options = {}) {
           agentLoopDone = true;
         }
 
-        // Print final response text
-        console.log(finalResponseText);
-        console.log('');
-
         if (finalResponseText) {
-          curTab.history.push({ role: 'assistant', content: finalResponseText });
+          const elapsedSec = Math.max(0.5, (Date.now() - startTime) / 1000);
+          const estTokens = Math.max(12, Math.round(finalResponseText.length / 3.5));
+          const speed = (estTokens / elapsedSec).toFixed(1) + ' tok/s';
+          const durStr = formatDuration(Date.now() - startTime);
+          curTab.history.push({
+            role: 'assistant',
+            content: finalResponseText,
+            duration: durStr,
+            thought: durStr,
+            speed: speed,
+            model: curMod,
+            power: curPower.label,
+          });
+          curTab.tokens = (curTab.tokens || 1400) + estTokens + Math.round(userPrompt.length / 3.5);
         }
 
       } catch (err) {
