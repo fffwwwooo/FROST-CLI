@@ -1128,8 +1128,30 @@ function formatInlineMarkdown(text) {
   return text;
 }
 
+// ── Word-wrap Helper (prevents ugly terminal wraps and word splits) ──
+function wrapWords(text, maxWidth) {
+  if (!text || maxWidth <= 10) return [text || ''];
+  const words = text.split(' ');
+  const lines = [];
+  let curLine = '';
+
+  for (const w of words) {
+    if (!curLine) {
+      curLine = w;
+    } else if (stripAnsi(curLine + ' ' + w).length <= maxWidth) {
+      curLine += ' ' + w;
+    } else {
+      lines.push(curLine);
+      curLine = w;
+    }
+  }
+  if (curLine) lines.push(curLine);
+  return lines;
+}
+
 function renderMarkdownBlocks(content, cols) {
   cols = cols || 80;
+  const maxWidth = Math.max(24, cols - 6);
   const lines = (content || '').split('\n');
   const out = [];
   let inCode = false;
@@ -1161,41 +1183,59 @@ function renderMarkdownBlocks(content, cols) {
     if (hMatch) {
       const level = hMatch[1].length;
       const text = hMatch[2];
-      if (level <= 2) {
-        out.push('\n  ' + OC.bold + OC.barCyan + formatInlineMarkdown(text) + OC.reset);
-      } else {
-        out.push('\n  ' + OC.bold + OC.textWhite + formatInlineMarkdown(text) + OC.reset);
+      const color = level <= 2 ? OC.bold + OC.barCyan : OC.bold + OC.textWhite;
+      const wrapped = wrapWords(formatInlineMarkdown(text), maxWidth);
+      out.push('');
+      for (const wl of wrapped) {
+        out.push('  ' + color + wl + OC.reset);
       }
       continue;
     }
 
     if (/^(\-{3,}|\*{3,}|_{3,})$/.test(l.trim())) {
-      out.push('  ' + OC.textDim + '─'.repeat(Math.min(48, cols - 8)) + OC.reset);
+      out.push('  ' + OC.textDim + '─'.repeat(Math.min(maxWidth, 48)) + OC.reset);
       continue;
     }
 
     if (/^>\s*(.*)$/.test(l)) {
       const qText = l.replace(/^>\s*/, '');
-      out.push('  ' + OC.barCyan + '│ ' + OC.textMuted + formatInlineMarkdown(qText) + OC.reset);
+      const wrapped = wrapWords(formatInlineMarkdown(qText), maxWidth - 4);
+      for (const wl of wrapped) {
+        out.push('  ' + OC.barCyan + '│ ' + OC.textMuted + wl + OC.reset);
+      }
       continue;
     }
 
     if (/^(\s*)[-*]\s+(.+)$/.test(l)) {
       const m = l.match(/^(\s*)[-*]\s+(.+)$/);
-      out.push('  ' + m[1] + OC.barCyan + '• ' + OC.textWhite + formatInlineMarkdown(m[2]) + OC.reset);
+      const prefix = '  ' + m[1] + OC.barCyan + '• ' + OC.textWhite;
+      const wrapped = wrapWords(formatInlineMarkdown(m[2]), maxWidth - m[1].length - 4);
+      for (let j = 0; j < wrapped.length; j++) {
+        if (j === 0) out.push(prefix + wrapped[j] + OC.reset);
+        else out.push('    ' + m[1] + OC.textWhite + wrapped[j] + OC.reset);
+      }
       continue;
     }
 
     if (/^(\s*)(\d+)\.\s+(.+)$/.test(l)) {
       const m = l.match(/^(\s*)(\d+)\.\s+(.+)$/);
-      out.push('  ' + m[1] + OC.barCyan + m[2] + '. ' + OC.textWhite + formatInlineMarkdown(m[3]) + OC.reset);
+      const prefix = '  ' + m[1] + OC.barCyan + m[2] + '. ' + OC.textWhite;
+      const wrapped = wrapWords(formatInlineMarkdown(m[3]), maxWidth - m[1].length - 6);
+      for (let j = 0; j < wrapped.length; j++) {
+        if (j === 0) out.push(prefix + wrapped[j] + OC.reset);
+        else out.push('    ' + m[1] + OC.textWhite + wrapped[j] + OC.reset);
+      }
       continue;
     }
 
     if (l.trim() === '') {
       if (out.length > 0 && out[out.length - 1] !== '') out.push('');
     } else {
-      out.push('  ' + OC.textWhite + formatInlineMarkdown(l) + OC.reset);
+      const formatted = formatInlineMarkdown(l);
+      const wrapped = wrapWords(formatted, maxWidth);
+      for (const wl of wrapped) {
+        out.push('  ' + OC.textWhite + wl + OC.reset);
+      }
     }
   }
 
@@ -1320,62 +1360,64 @@ async function playStartupAnimation() {
 
 // ── Render: OpenCode Home Screen ──
 function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'New session' }], activeTabIdx = 0) {
-  const cols = Math.min(process.stdout.columns || 90, 100);
-  const cardW = Math.max(64, cols - 8);
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
+  const cardW = Math.max(50, Math.min(cols - 6, 120));
 
-  process.stdout.write('\x1b[H\x1b[2J\x1b[3J');
+  let frame = '\x1b[?2026h\x1b[H';
 
   // 1. Tab bar at top
-  console.log(renderTabBar(tabs, activeTabIdx));
-  console.log('');
+  frame += renderTabBar(tabs, activeTabIdx) + '\x1b[K\n';
+  frame += '\x1b[K\n';
 
   // 2. Centered Prominent Logo
   const logo = renderLogoLines();
   const rawLogoW = TOKIFY_LOGO[0].length;
-  const logoPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLogoW) / 2)));
-  for (const l of logo) console.log(logoPad + l);
+  const logoPad = ' '.repeat(Math.max(1, Math.floor((cols - rawLogoW) / 2)));
+  for (const l of logo) frame += logoPad + l + '\x1b[K\n';
 
   // 3. Subtext
   const subText = `${OC.peach}/help${OC.textDim} for commands · ${OC.peach}/lang${OC.textDim} language · v${VERSION}${OC.reset}`;
   const subRawLen = 38;
-  const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRawLen) / 2)));
-  console.log('\n' + subPad + subText + '\n');
+  const subPad = ' '.repeat(Math.max(1, Math.floor((cols - subRawLen) / 2)));
+  frame += '\n' + subPad + subText + '\x1b[K\n\n';
 
   // 4. Elevated card (Line 2: Model & Status Bar)
-  const cardPad = ' '.repeat(Math.max(2, Math.floor((cols - cardW) / 2)));
+  const cardPad = ' '.repeat(Math.max(1, Math.floor((cols - cardW) / 2)));
   const tagLine = `Autonomous · ${currentModel} ${currentPower}`;
   const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));
 
-  console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' +
+  frame += cardPad + OC.bgCard + ' ' + BAR + ' ' +
     OC.accentBlue + (currentLanguage === 'en' ? 'Autonomous' : 'Автономный') + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
-    OC.peach + currentPower + OC.bgCard + l2pad + ' ' + OC.reset);
+    OC.peach + currentPower + OC.bgCard + l2pad + ' ' + OC.reset + '\x1b[K\n';
 
   // 5. Path and shortcuts line (clean, short, never wraps!)
-  const shortCwd = cwd.length > 40 ? '...' + cwd.slice(-37) : cwd;
+  const maxCwd = Math.max(20, Math.floor(cardW * 0.4));
+  const shortCwd = cwd.length > maxCwd ? '...' + cwd.slice(-maxCwd + 3) : cwd;
   const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
   const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 28));
-  console.log(cardPad + ' ' + OC.textDim + shortCwd + midSpace + keysHint + OC.reset);
-  console.log('');
+  frame += cardPad + ' ' + OC.textDim + shortCwd + midSpace + keysHint + OC.reset + '\x1b[K\n';
+  frame += '\x1b[K\n';
 
   // 6. Footer (solid ● bullets)
   const footLeft = ' ' + OC.green + '●' + OC.textMuted + t('fullPcAccess') +
                    OC.accentBlue + '●' + OC.textMuted + ' 1 MCP';
   const footRight = OC.textDim + VERSION + ' ';
   const footSpace = ' '.repeat(Math.max(2, cols - 32 - VERSION.length - 2));
-  console.log(footLeft + footSpace + footRight + OC.reset);
-  console.log('');
+  frame += footLeft + footSpace + footRight + OC.reset + '\x1b[K\n';
+  frame += '\x1b[J';
+  frame += '\x1b[?2026l';
+
+  process.stdout.write(frame);
 }
 
 // ── Render: OpenCode Chat Screen (with Persistent Pinned Tab Bar & Strictly Clamped Viewport) ──
 function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '', activeSteps = []) {
-  const cols = Math.min(process.stdout.columns || 90, 140);
-  const rows = process.stdout.rows || 30;
-  const cardW = Math.max(50, cols - 6);
-
-  // Clear visible screen & reset scrollback so Row 1 is ALWAYS pinned at the top
-  process.stdout.write('\x1b[H\x1b[2J\x1b[3J');
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
+  const cardW = Math.max(48, cols - 4);
 
   // Format chat messages into lines
   const chatLines = [];
@@ -1384,8 +1426,11 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
     const m = history[idx];
     if (m.role === 'user') {
       const content = m.content || '';
-      const padLen = Math.max(1, cardW - 4 - stripAnsi(content).length);
-      chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      const wrapped = wrapWords(content, Math.max(20, cardW - 8));
+      for (const uLine of wrapped) {
+        const padLen = Math.max(1, cardW - 4 - stripAnsi(uLine).length);
+        chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + uLine + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      }
       chatLines.push('');
     } else if (m.role === 'assistant') {
       const thoughtDur = m.thought || m.duration || '2s';
@@ -1398,7 +1443,7 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
 
       const dur = m.duration || '2.8s';
       const spd = m.speed || '38.4 tok/s';
-      const meta = '  ' + OC.barCyan + 'Autonomous' + OC.textDim + ' · ' +
+      const meta = '  ' + OC.barCyan + (currentLanguage === 'en' ? 'Autonomous' : 'Автономный') + OC.textDim + ' · ' +
         OC.textWhite + (m.model || currentModel) + ' ' + (m.power || currentPower) + OC.textDim +
         ' · ' + dur + ' · ' + spd + OC.reset;
       chatLines.push(meta);
@@ -1450,21 +1495,25 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
     currentHeight += lh;
   }
 
+  // Build the complete screen frame in memory buffer:
+  let frame = '\x1b[?2026h\x1b[H';
+
   // 1. Tab bar at top (Row 1 - ALWAYS PINNED, NEVER SCROLLS OFF)
-  console.log(renderTabBar(tabs, activeTabIdx));
-  console.log('');
+  frame += renderTabBar(tabs, activeTabIdx) + '\x1b[K\n';
+  frame += '\x1b[K\n';
 
   // 2. Chat messages
   for (const line of visibleLines) {
-    console.log(line);
+    frame += line + '\x1b[K\n';
   }
   const padRows = maxChatHeight - currentHeight;
   for (let r = 0; r < padRows; r++) {
-    console.log('');
+    frame += '\x1b[K\n';
   }
 
   // 3. Separated bottom card status & shortcuts line immediately above prompt
-  const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '~';
+  const maxCwdLen = Math.max(20, Math.floor(cols * 0.35));
+  const shortCwd = cwd ? (cwd.length > maxCwdLen ? '...' + cwd.slice(-maxCwdLen + 3) : cwd) : '~';
   const modeBadge = currentAccessMode === 'review'
     ? OC.peach + '🛡️ Review' + OC.reset
     : OC.green + '⚡ Turbo' + OC.reset;
@@ -1483,29 +1532,34 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   const rightInfo = scrollIndicator + OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.reset +
     ' · ' + modeBadge + OC.textDim + '   shift+tab model   ctrl+p commands';
   const rightVisLen = stripAnsi(rightInfo).length;
-  const midSpace = ' '.repeat(Math.max(2, cols - shortCwd.length - rightVisLen - 2));
+  const midSpace = ' '.repeat(Math.max(1, cols - shortCwd.length - rightVisLen - 2));
 
-  console.log(' ' + OC.textDim + shortCwd + midSpace + rightInfo + OC.reset);
+  frame += ' ' + OC.textDim + shortCwd + midSpace + rightInfo + OC.reset + '\x1b[K\n';
+  frame += '\x1b[J';
+  frame += '\x1b[?2026l';
+
+  // Flush single atomic buffer!
+  process.stdout.write(frame);
 }
 
 // ── Render: Access Mode Modal (Turbo vs Request Review) ──
 function renderAccessModeModal(selectedIndex) {
-  const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
   const modalW = Math.min(62, cols - 8);
   const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
 
-  console.clear();
+  let frame = '\x1b[?2026h\x1b[H';
 
   const topSpace = Math.max(2, Math.floor(rows * 0.18));
-  for (let i = 0; i < topSpace; i++) console.log('');
+  for (let i = 0; i < topSpace; i++) frame += '\x1b[K\n';
 
   // Header
   const titleLeft = '  ' + OC.bold + OC.textWhite + t('accessModalTitle') + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
   const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
-  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset + '\x1b[K\n';
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   const options = [
     {
@@ -1534,34 +1588,36 @@ function renderAccessModeModal(selectedIndex) {
     const dPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(descLine).length));
 
     if (isSel) {
-      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
-      console.log(leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset);
+      frame += leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
+      frame += leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset + '\x1b[K\n';
     } else {
-      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
-      console.log(leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset);
+      frame += leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
+      frame += leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset + '\x1b[K\n';
     }
-    console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+    frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
   }
+  frame += '\x1b[J\x1b[?2026l';
+  process.stdout.write(frame);
 }
 
 // ── Render: Theme & UI Colors Modal ──
 function renderThemeModal(selectedIndex) {
-  const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
   const modalW = Math.min(64, cols - 8);
   const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
 
-  console.clear();
+  let frame = '\x1b[?2026h\x1b[H';
 
   const topSpace = Math.max(2, Math.floor(rows * 0.15));
-  for (let i = 0; i < topSpace; i++) console.log('');
+  for (let i = 0; i < topSpace; i++) frame += '\x1b[K\n';
 
   // Header
   const titleLeft = '  ' + OC.bold + OC.textWhite + t('themeModalTitle') + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
   const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
-  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset + '\x1b[K\n';
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   const themeKeys = Object.keys(THEMES);
   for (let i = 0; i < themeKeys.length; i++) {
@@ -1576,32 +1632,34 @@ function renderThemeModal(selectedIndex) {
     const tPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(titleLine).length - 4));
 
     if (isSel) {
-      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
+      frame += leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
     } else {
-      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
+      frame += leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
     }
   }
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
+  frame += '\x1b[J\x1b[?2026l';
+  process.stdout.write(frame);
 }
 
 // ── Render: Language Selection Modal ──
 function renderLanguageModal(selectedIndex) {
-  const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
   const modalW = Math.min(62, cols - 8);
   const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
 
-  console.clear();
+  let frame = '\x1b[?2026h\x1b[H';
 
   const topSpace = Math.max(2, Math.floor(rows * 0.18));
-  for (let i = 0; i < topSpace; i++) console.log('');
+  for (let i = 0; i < topSpace; i++) frame += '\x1b[K\n';
 
   // Header
   const titleLeft = '  ' + OC.bold + OC.textWhite + t('langModalTitle') + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
   const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
-  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset + '\x1b[K\n';
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   const options = [
     { id: 'en', title: 'English (Default)', desc: 'Full UI and AI responses in English.', flag: '🇬🇧' },
@@ -1620,42 +1678,44 @@ function renderLanguageModal(selectedIndex) {
     const dPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(descLine).length));
 
     if (isSel) {
-      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
-      console.log(leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset);
+      frame += leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
+      frame += leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset + '\x1b[K\n';
     } else {
-      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
-      console.log(leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset);
+      frame += leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset + '\x1b[K\n';
+      frame += leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset + '\x1b[K\n';
     }
-    console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+    frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
   }
+  frame += '\x1b[J\x1b[?2026l';
+  process.stdout.write(frame);
 }
 
 // ── Render: Command Palette Modal ──
 function renderCommandPalette(query, selectedIndex, tabs, activeTabIdx, currentModel, currentPower) {
-  const cols = process.stdout.columns || 90;
-  const rows = process.stdout.rows || 30;
+  const cols = Math.max(60, process.stdout.columns || 90);
+  const rows = Math.max(16, process.stdout.rows || 30);
   const modalW = Math.min(66, cols - 8);
   const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
 
-  console.clear();
+  let frame = '\x1b[?2026h\x1b[H';
 
   // Top spacing
   const topSpace = Math.max(2, Math.floor(rows * 0.15));
-  for (let i = 0; i < topSpace; i++) console.log('');
+  for (let i = 0; i < topSpace; i++) frame += '\x1b[K\n';
 
   // Modal header
   const titleLeft = '  ' + OC.bold + OC.textWhite + 'Commands' + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
   const headerPad = ' '.repeat(Math.max(1, modalW - 13));
-  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset + '\x1b[K\n';
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   // Search bar
   const searchDisplay = query ? OC.textWhite + query : OC.textMuted + 'search';
   const searchPlainLen = 4 + (query ? query.length : 6);
   const searchPad = ' '.repeat(Math.max(0, modalW - searchPlainLen));
-  console.log(leftPad + OC.bgModal + '  ' + OC.peach + '█' + OC.reset + OC.bgModal + ' ' + searchDisplay + OC.bgModal + searchPad + OC.reset);
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + '  ' + OC.peach + '█' + OC.reset + OC.bgModal + ' ' + searchDisplay + OC.bgModal + searchPad + OC.reset + '\x1b[K\n';
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   // Items
   const filtered = getFilteredPaletteItems(query);
@@ -1668,7 +1728,7 @@ function renderCommandPalette(query, selectedIndex, tabs, activeTabIdx, currentM
     if (it.type === 'header') {
       const hdr = '  ' + OC.catViolet + it.text + OC.reset;
       const hdrPad = ' '.repeat(Math.max(0, modalW - 2 - it.text.length));
-      console.log(leftPad + OC.bgModal + hdr + OC.bgModal + hdrPad + OC.reset);
+      frame += leftPad + OC.bgModal + hdr + OC.bgModal + hdrPad + OC.reset + '\x1b[K\n';
     } else {
       const isSel = (idx === activeIdx);
       const keyHint = it.key || '';
@@ -1677,23 +1737,26 @@ function renderCommandPalette(query, selectedIndex, tabs, activeTabIdx, currentM
       const spacer = ' '.repeat(Math.max(1, modalW - 2 - titleStr.length - rightStr.length));
 
       if (isSel) {
-        console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + ' ' + titleStr + spacer + rightStr + ' ' + OC.reset);
+        frame += leftPad + OC.bgSelected + OC.fgBlack + OC.bold + ' ' + titleStr + spacer + rightStr + ' ' + OC.reset + '\x1b[K\n';
       } else {
-        console.log(leftPad + OC.bgModal + '  ' + OC.textWhite + titleStr.slice(1) + OC.bgModal + spacer + OC.textDim + rightStr + OC.bgModal + ' ' + OC.reset);
+        frame += leftPad + OC.bgModal + '  ' + OC.textWhite + titleStr.slice(1) + OC.bgModal + spacer + OC.textDim + rightStr + OC.bgModal + ' ' + OC.reset + '\x1b[K\n';
       }
     }
   }
 
-  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  frame += leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset + '\x1b[K\n';
 
   // Below modal: show current state dimmed
-  console.log('');
+  frame += '\x1b[K\n';
   const dimStatus = OC.textDim + ' ' + BAR + ' ' + OC.textDim +
     'Autonomous · ' + currentModel + ' ' + currentPower + OC.reset;
-  console.log(dimStatus);
+  frame += dimStatus + '\x1b[K\n';
   const dimFoot = OC.textDim + '                              ' +
     'shift+tab model   ctrl+p commands  ' + OC.reset;
-  console.log(dimFoot);
+  frame += dimFoot + '\x1b[K\n';
+  frame += '\x1b[J\x1b[?2026l';
+
+  process.stdout.write(frame);
 }
 
 // ── Tool Step Animation ──
@@ -1886,6 +1949,15 @@ async function runChat(options = {}) {
     refreshCurrentView();
   };
 
+  let scrollRenderTimer = null;
+  const scheduleScrollRender = () => {
+    if (scrollRenderTimer) return;
+    scrollRenderTimer = setTimeout(() => {
+      scrollRenderTimer = null;
+      refreshCurrentView();
+    }, 16);
+  };
+
   const scrollChat = (deltaLines) => {
     const curTab = getActiveTab();
     if (!curTab || curTab.history.length === 0) return;
@@ -1893,7 +1965,7 @@ async function runChat(options = {}) {
     const maxScroll = typeof curTab.maxScroll === 'number' ? curTab.maxScroll : 9999;
     const nextOffset = curTab.scrollOffset + deltaLines;
     curTab.scrollOffset = Math.max(0, Math.min(maxScroll, nextOffset));
-    refreshCurrentView();
+    scheduleScrollRender();
   };
 
   const closeCurrentTab = (targetIdx = activeTabIdx) => {
@@ -1913,8 +1985,16 @@ async function runChat(options = {}) {
   };
 
   // ── Global Mouse Tracker, Resize Handler & Stream Interceptor ──
+  let resizeTimer = null;
   const onResize = () => {
-    refreshCurrentView();
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      // Clear entire terminal buffer on resize to eliminate ghost lines from old dimensions
+      if (isTTY) {
+        process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
+      }
+      refreshCurrentView();
+    }, 40);
   };
   process.stdout.on('resize', onResize);
 
