@@ -8,6 +8,8 @@ const PROJECT_DIR = __dirname;
 const DIST_DIR    = path.join(PROJECT_DIR, 'dist');
 const DESKTOP_DIR = path.join(require('os').homedir(), 'Desktop');
 
+const OUTPUT_TOKIFY_EXE   = path.join(DIST_DIR, 'tokify.exe');
+const DESKTOP_TOKIFY_EXE  = path.join(DESKTOP_DIR, 'tokify.exe');
 const OUTPUT_FROST_EXE     = path.join(DIST_DIR, 'FROST-CLI.exe');
 const DESKTOP_FROST_EXE    = path.join(DESKTOP_DIR, 'FROST-CLI.exe');
 const DESKTOP_ANTIGRAV_EXE = path.join(DESKTOP_DIR, 'Antigravity-CLI.exe');
@@ -21,7 +23,7 @@ function ok(msg)  { console.log(`\x1b[38;2;63;185;80m[SUCCESS]\x1b[0m ${msg}`); 
 if (!fs.existsSync(DIST_DIR)) fs.mkdirSync(DIST_DIR, { recursive: true });
 
 // 1. Bundle with esbuild
-log('1/6 Bundling app.js (FROST CLI with Full PC Access) with esbuild…');
+log('1/6 Bundling app.js (tokify. with Full PC Access) with esbuild…');
 execSync('npx esbuild app.js --bundle --platform=node --target=node24 --outfile=dist/bundle.js', {
   cwd: PROJECT_DIR,
   stdio: 'inherit',
@@ -42,13 +44,13 @@ execSync(`node --experimental-sea-config "${seaConfigFile}"`, {
   stdio: 'inherit',
 });
 
-// 3. Prepare base binary & inject custom FROST icon & metadata (eliminating Node.js branding)
-log('3/6 Preparing standalone PE binary (embedding custom FROST icon & metadata)…');
-fs.copyFileSync(process.execPath, OUTPUT_FROST_EXE);
+// 3. Prepare base binary & inject custom tokify. icon & metadata (eliminating Node.js branding)
+log('3/6 Preparing standalone PE binary (embedding custom tokify. icon & metadata)…');
+fs.copyFileSync(process.execPath, OUTPUT_TOKIFY_EXE);
 
 if (fs.existsSync(RCEDIT_PATH) && fs.existsSync(ICON_PATH)) {
-  log('Setting custom Cyber-Frost application icon (.ico) and executable info…');
-  execSync(`"${RCEDIT_PATH}" "${OUTPUT_FROST_EXE}" --set-icon "${ICON_PATH}" --set-version-string FileDescription "FROST CLI 2.0 - Autonomous AI Agent" --set-version-string ProductName "FROST CLI" --set-version-string CompanyName "FROST Core" --set-file-version 2.0.0.0 --set-product-version 2.0.0.0`, {
+  log('Setting custom tokify. application icon (.ico) and executable info…');
+  execSync(`"${RCEDIT_PATH}" "${OUTPUT_TOKIFY_EXE}" --set-icon "${ICON_PATH}" --set-version-string FileDescription "tokify. 2.0 - Autonomous AI Agent" --set-version-string ProductName "tokify." --set-version-string CompanyName "tokify." --set-file-version 2.0.0.0 --set-product-version 2.0.0.0`, {
     cwd: PROJECT_DIR,
     stdio: 'inherit',
   });
@@ -72,45 +74,47 @@ function removeSignature(exePath) {
   }
 }
 log('Stripping old Authenticode signature…');
-removeSignature(OUTPUT_FROST_EXE);
+removeSignature(OUTPUT_TOKIFY_EXE);
 
-// 4. Inject SEA payload into FROST-CLI.exe
-log('4/6 Injecting Node.js SEA payload into FROST-CLI.exe…');
-execSync(`npx postject "${OUTPUT_FROST_EXE}" NODE_SEA_BLOB "${seaConfig.output}" --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`, {
+// 4. Inject SEA payload into tokify.exe
+log('4/6 Injecting Node.js SEA payload into tokify.exe…');
+execSync(`npx postject "${OUTPUT_TOKIFY_EXE}" NODE_SEA_BLOB "${seaConfig.output}" --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`, {
   cwd: PROJECT_DIR,
   stdio: 'inherit',
 });
 
 // 5. Test execution
-log('5/6 Verifying standalone FROST-CLI.exe…');
-const testOut = execSync(`"${OUTPUT_FROST_EXE}" chat`, {
+log('5/6 Verifying standalone tokify.exe…');
+const testOut = execSync(`"${OUTPUT_TOKIFY_EXE}" chat`, {
   input: '/help\n',
   encoding: 'utf8',
   timeout: 10000,
 });
 
-if (testOut.includes('FROST CLI') || testOut.includes('FROST KERNEL')) {
-  ok('FROST-CLI.exe verified and working with custom icon!');
+if (testOut.includes('tokify') || testOut.includes('Доступные команды')) {
+  ok('tokify.exe verified and working with custom icon!');
 } else {
-  throw new Error('Verification failed. Unexpected output.');
+  throw new Error('Verification failed. Unexpected output: ' + testOut);
 }
 
 // 6. Copy to Desktop & keep aliases
 log('6/6 Copying to Desktop with new icon…');
 try {
   try {
-    execSync('powershell -Command "Stop-Process -Name FROST-CLI -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
+    execSync('powershell -Command "Stop-Process -Name tokify, FROST-CLI -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
   } catch {}
-  fs.copyFileSync(OUTPUT_FROST_EXE, DESKTOP_FROST_EXE);
-  fs.copyFileSync(OUTPUT_FROST_EXE, DESKTOP_ANTIGRAV_EXE);
-  fs.copyFileSync(OUTPUT_FROST_EXE, DIST_ANTIGRAV_EXE);
-  ok(`Copied standalone executable with custom icon to Desktop: ${DESKTOP_FROST_EXE}`);
+  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_TOKIFY_EXE);
+  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_FROST_EXE);
+  fs.copyFileSync(OUTPUT_TOKIFY_EXE, OUTPUT_FROST_EXE);
+  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_ANTIGRAV_EXE);
+  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DIST_ANTIGRAV_EXE);
+  ok(`Copied standalone executable with custom icon to Desktop: ${DESKTOP_TOKIFY_EXE}`);
 } catch (e) {
   console.warn(`Could not copy to Desktop: ${e.message}`);
 }
 
-const stats = fs.statSync(OUTPUT_FROST_EXE);
+const stats = fs.statSync(OUTPUT_TOKIFY_EXE);
 const sizeMb = (stats.size / 1024 / 1024).toFixed(1);
 ok(`Build complete! File size: ${sizeMb} MB`);
-console.log(`\nBinary location: \x1b[38;2;235;42;54m${OUTPUT_FROST_EXE}\x1b[0m`);
-console.log(`Desktop location: \x1b[38;2;235;42;54m${DESKTOP_FROST_EXE}\x1b[0m\n`);
+console.log(`\nBinary location: \x1b[38;2;235;42;54m${OUTPUT_TOKIFY_EXE}\x1b[0m`);
+console.log(`Desktop location: \x1b[38;2;235;42;54m${DESKTOP_TOKIFY_EXE}\x1b[0m\n`);

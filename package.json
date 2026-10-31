@@ -1,9 +1,11 @@
 {
-  "name": "frost-cli",
+  "name": "tokify",
   "version": "2.0.0",
-  "description": "Autonomous AI Agent with Deep Reasoning, Full PC Access & Multi-Chat Tabs",
+  "description": "tokify. — Autonomous AI Agent with Deep Reasoning, Full PC Access & Multi-Chat Tabs",
   "main": "app.js",
   "bin": {
+    "tokify": "./app.js",
+    "tokify-cli": "./app.js",
     "frost": "./app.js",
     "frost-cli": "./app.js"
   },

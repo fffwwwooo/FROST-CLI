@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ═══════════════════════════════════════════════════════════════════════
- *  FROST CLI 2.0 — Autonomous AI Agent with Full PC Access
+ *  tokify. — Autonomous AI Agent with Full PC Access
  *  OpenCode-inspired Terminal User Interface
  *  • Full PC Access: Execute PowerShell, manage files, launch apps
  *  • 100% Single-Window: Zero extra popups, seamless interactive loop
@@ -127,7 +127,8 @@ const THEMES = {
 let currentThemeId = 'cyber';
 let currentAccessMode = 'turbo'; // 'turbo' | 'review'
 
-const SETTINGS_FILE = path.join(os.homedir(), '.frost-cli-settings.json');
+const SETTINGS_FILE = path.join(os.homedir(), '.tokify-settings.json');
+const LEGACY_SETTINGS_FILE = path.join(os.homedir(), '.frost-cli-settings.json');
 
 function saveUserSettings() {
   try {
@@ -185,8 +186,9 @@ function applyTheme(themeId, save = true) {
 
 function loadUserSettings() {
   try {
-    if (fs.existsSync(SETTINGS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    const target = fs.existsSync(SETTINGS_FILE) ? SETTINGS_FILE : (fs.existsSync(LEGACY_SETTINGS_FILE) ? LEGACY_SETTINGS_FILE : null);
+    if (target) {
+      const data = JSON.parse(fs.readFileSync(target, 'utf8'));
       if (data.theme && THEMES[data.theme]) applyTheme(data.theme, false);
       if (data.accessMode === 'review' || data.accessMode === 'turbo') currentAccessMode = data.accessMode;
     }
@@ -209,19 +211,19 @@ function getClipboardText() {
   }
 }
 
-// ─── FROST Block Logo (Prominent OpenCode silver→white horizontal gradient) ───
-const FROST_LOGO = [
-  '  ███████╗██████╗  ██████╗ ███████╗████████╗',
-  '  ██╔════╝██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝',
-  '  █████╗  ██████╔╝██║   ██║███████╗   ██║   ',
-  '  ██╔══╝  ██╔══██╗██║   ██║╚════██║   ██║   ',
-  '  ██║     ██║  ██║╚██████╔╝███████║   ██║   ',
-  '  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝   ',
+// ─── tokify. Block Logo (Prominent OpenCode silver→white horizontal gradient) ───
+const TOKIFY_LOGO = [
+  '  ████████╗ ██████╗ ██╗  ██╗██╗███████╗██╗   ██╗     ',
+  '  ╚══██╔══╝██╔═══██╗██║ ██╔╝██║██╔════╝╚██╗ ██╔╝     ',
+  '     ██║   ██║   ██║█████╔╝ ██║█████╗   ╚████╔╝      ',
+  '     ██║   ██║   ██║██╔═██╗ ██║██╔══╝    ╚██╔╝       ',
+  '     ██║   ╚██████╔╝██║  ██╗██║██║        ██║     ██╗',
+  '     ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝        ╚═╝     ╚═╝',
 ];
 
 function renderLogoLines() {
   const lines = [];
-  for (const line of FROST_LOGO) {
+  for (const line of TOKIFY_LOGO) {
     let out = '';
     for (let c = 0; c < line.length; c++) {
       const ch = line[c];
@@ -820,7 +822,7 @@ const PALETTE_ITEMS = [
   { id: 'stats',          title: 'Token stats / balance', key: '/stats' },
   { id: 'clear_chat',     title: 'Clear history',       key: '/clear' },
   { id: 'help',           title: 'Show help',           key: '/help' },
-  { id: 'exit',           title: 'Exit FROST CLI',      key: '/exit' },
+  { id: 'exit',           title: 'Exit tokify.',        key: '/exit' },
 ];
 
 function getFilteredPaletteItems(query) {
@@ -1041,7 +1043,7 @@ async function playStartupAnimation() {
   if (!isTTY) return;
   const cols = Math.min(process.stdout.columns || 90, 100);
   const rows = process.stdout.rows || 25;
-  const rawLogoW = FROST_LOGO[0].length;
+  const rawLogoW = TOKIFY_LOGO[0].length;
   const logoPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLogoW) / 2)));
   const topPad = Math.max(1, Math.floor(rows * 0.12));
 
@@ -1049,10 +1051,10 @@ async function playStartupAnimation() {
   const totalFrames = 24;
   for (let f = 0; f <= totalFrames; f++) {
     const sweepX = (f / totalFrames) * (rawLogoW + 14) - 7;
-    let out = '\x1b[H\x1b[J';
+    let out = '\x1b[H\x1b[2J';
     for (let i = 0; i < topPad; i++) out += '\n';
 
-    for (const line of FROST_LOGO) {
+    for (const line of TOKIFY_LOGO) {
       out += logoPad;
       for (let c = 0; c < line.length; c++) {
         const ch = line[c];
@@ -1081,7 +1083,7 @@ async function playStartupAnimation() {
     const barWidth = 24;
     const filled = Math.round((pct / 100) * barWidth);
     const beam = OC.barCyan + '█'.repeat(filled) + rgb(45, 50, 60) + '·'.repeat(barWidth - filled) + OC.reset;
-    const subText = `${OC.textDim}INITIALIZING FROST KERNEL 2.0...${OC.reset}  [${beam}] ${OC.barCyan}${pct}%${OC.reset}`;
+    const subText = `${OC.textDim}INITIALIZING TOKIFY KERNEL 2.0...${OC.reset}  [${beam}] ${OC.barCyan}${pct}%${OC.reset}`;
     const subPad = ' '.repeat(Math.max(2, Math.floor((cols - 56) / 2)));
     out += '\n' + subPad + subText + '\n';
 
@@ -1097,7 +1099,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   const cols = Math.min(process.stdout.columns || 90, 100);
   const cardW = Math.max(64, cols - 8);
 
-  console.clear();
+  process.stdout.write('\x1b[H\x1b[2J\x1b[3J');
 
   // 1. Tab bar at top
   console.log(renderTabBar(tabs, activeTabIdx));
@@ -1105,7 +1107,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
 
   // 2. Centered Prominent Logo
   const logo = renderLogoLines();
-  const rawLogoW = FROST_LOGO[0].length;
+  const rawLogoW = TOKIFY_LOGO[0].length;
   const logoPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLogoW) / 2)));
   for (const l of logo) console.log(logoPad + l);
 
@@ -1142,19 +1144,16 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   console.log('');
 }
 
-// ── Render: OpenCode Chat Screen (with Persistent Pinned Tab Bar & Separated Viewport) ──
-function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '') {
-  const cols = process.stdout.columns || 90;
+// ── Render: OpenCode Chat Screen (with Persistent Pinned Tab Bar & Strictly Clamped Viewport) ──
+function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '', activeSteps = []) {
+  const cols = Math.min(process.stdout.columns || 90, 140);
   const rows = process.stdout.rows || 30;
   const cardW = Math.max(50, cols - 6);
 
-  console.clear();
+  // Clear visible screen & reset scrollback so Row 1 is ALWAYS pinned at the top
+  process.stdout.write('\x1b[H\x1b[2J\x1b[3J');
 
-  // 1. Tab bar at top (Row 1 - ALWAYS PINNED, NEVER SCROLLS OFF)
-  console.log(renderTabBar(tabs, activeTabIdx));
-  console.log('');
-
-  // 2. Format chat messages into lines
+  // Format chat messages into lines
   const chatLines = [];
 
   for (let idx = 0; idx < history.length; idx++) {
@@ -1165,17 +1164,14 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
       chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
       chatLines.push('');
     } else if (m.role === 'assistant') {
-      // OpenCode collapsed thought indicator
       const thoughtDur = m.thought || m.duration || '2s';
       chatLines.push('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
 
-      // Markdown formatted blocks
       const blocks = renderMarkdownBlocks(m.content, cardW);
       for (const b of blocks) {
         chatLines.push(b);
       }
 
-      // OpenCode assistant message footer (Image 3: Build · Flint 40B Free · 3.2s · 43.2 tok/s)
       const dur = m.duration || '2.8s';
       const spd = m.speed || '38.4 tok/s';
       const meta = '  ' + OC.barCyan + 'Autonomous' + OC.textDim + ' · ' +
@@ -1186,17 +1182,45 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
     }
   }
 
-  // 3. Viewport calculation: clamp visible lines so total height NEVER exceeds terminal rows!
-  const maxViewportLines = Math.max(6, rows - 5);
-  const visibleLines = chatLines.length > maxViewportLines
-    ? chatLines.slice(-maxViewportLines)
-    : chatLines;
+  // If live tool steps are active during autonomous execution, render them cleanly
+  if (activeSteps && activeSteps.length > 0) {
+    for (const step of activeSteps) {
+      if (step.status === 'running') {
+        chatLines.push(`  ${OC.barCyan}●${OC.reset} ${OC.textWhite}${step.action}${OC.reset} ${OC.textDim}${step.detail || ''}${OC.reset}`);
+      } else {
+        chatLines.push(`  ${OC.green}✔${OC.reset} ${OC.textDim}${step.action} ${step.detail || ''}${OC.reset}`);
+      }
+    }
+  }
 
+  // Strict height calculation: measure physical wrapped rows so total lines NEVER exceed terminal rows!
+  // Reserved:
+  // Row 1: Tab bar
+  // Row 2: Empty line
+  // Row rows - 2: Bottom status & shortcuts
+  // Row rows - 1: Prompt line
+  const maxChatHeight = Math.max(3, rows - 7);
+  const visibleLines = [];
+  let currentHeight = 0;
+  for (let i = chatLines.length - 1; i >= 0; i--) {
+    const line = chatLines[i];
+    const rawLen = stripAnsi(line).length;
+    const lineRows = Math.max(1, Math.ceil(rawLen / (cols - 2)));
+    if (currentHeight + lineRows > maxChatHeight) break;
+    visibleLines.unshift(line);
+    currentHeight += lineRows;
+  }
+
+  // 1. Tab bar at top (Row 1 - ALWAYS PINNED, NEVER SCROLLS OFF)
+  console.log(renderTabBar(tabs, activeTabIdx));
+  console.log('');
+
+  // 2. Chat messages
   for (const line of visibleLines) {
     console.log(line);
   }
 
-  // 4. Separated bottom card status & shortcuts line immediately above prompt
+  // 3. Separated bottom card status & shortcuts line immediately above prompt
   const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '~';
   const modeBadge = currentAccessMode === 'review'
     ? OC.peach + '🛡️ Review' + OC.reset
@@ -1420,7 +1444,7 @@ async function runChat(options = {}) {
   let MODEL    = options.model   || process.env.DSH_MODEL    || '';
   const returnToMenu = Boolean(options.returnToMenu);
 
-  if (isTTY) process.stdout.write(`\x1b]0;FROST CLI ${VERSION}\x07`);
+  if (isTTY) process.stdout.write(`\x1b]0;tokify. ${VERSION}\x07`);
   ensureDshWebSilent();
 
   const tokenStore = await autoDiscoverTokens();
@@ -1518,7 +1542,7 @@ async function runChat(options = {}) {
       renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curTab.model, POWER_MODES[curTab.powerIdx].label, isBusy, cwd);
     }
     if (isTTY) {
-      process.stdout.write(`\x1b]0;FROST CLI · ${curTab.title} · ${curTab.model} · ${POWER_MODES[curTab.powerIdx].label}\x07`);
+      process.stdout.write(`\x1b]0;tokify. · ${curTab.title} · ${curTab.model} · ${POWER_MODES[curTab.powerIdx].label}\x07`);
     }
     rl.setPrompt(getPromptString());
     rl._refreshLine();
@@ -1526,7 +1550,6 @@ async function runChat(options = {}) {
 
   // ── Tab Actions ──
   const switchTab = (targetIdx) => {
-    if (isBusy) return;
     if (targetIdx >= 0 && targetIdx < tabs.length) {
       activeTabIdx = targetIdx;
       const curTab = getActiveTab();
@@ -1537,7 +1560,6 @@ async function runChat(options = {}) {
   };
 
   const createNewTab = (title = '') => {
-    if (isBusy) return;
     const nextId = tabs.length > 0 ? Math.max(...tabs.map(t => t.id)) + 1 : 1;
     const tabTitle = title.trim() || `New session ${nextId}`;
     tabs.push({
@@ -1549,7 +1571,6 @@ async function runChat(options = {}) {
   };
 
   const closeCurrentTab = (targetIdx = activeTabIdx) => {
-    if (isBusy) return;
     if (tabs.length <= 1) {
       tabs[0].title = 'New session';
       tabs[0].history = [];
@@ -1594,7 +1615,7 @@ async function runChat(options = {}) {
         const isPress = match[4] === 'M';
 
         if (isPress && button === 0) {
-          if (!isPaletteOpen && !isBusy) {
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
             if (y === 1 || y === 2) {
               if (x >= plusZone.startX && x <= plusZone.endX) {
                 createNewTab();
@@ -1736,7 +1757,7 @@ async function runChat(options = {}) {
       case 'help':
         refreshCurrentView();
         console.log('');
-        console.log(`${OC.bold}${OC.textWhite}FROST CLI Commands:${OC.reset}`);
+        console.log(`${OC.bold}${OC.textWhite}tokify. Commands:${OC.reset}`);
         console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Cycle model${C.reset}`);
         console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Cycle power (High/Medium/Fast)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
@@ -1941,6 +1962,16 @@ async function runChat(options = {}) {
     // Ctrl+W → Close tab
     if ((key && key.ctrl && key.name === 'w') || s === '\x17') { closeCurrentTab(); return; }
 
+    // Left / Right arrow keys switch tabs when input line is empty
+    if (rl.line === '' && key && key.name === 'right') {
+      switchTab((activeTabIdx + 1) % tabs.length);
+      return;
+    }
+    if (rl.line === '' && key && key.name === 'left') {
+      switchTab((activeTabIdx - 1 + tabs.length) % tabs.length);
+      return;
+    }
+
     // Ctrl+Right / Ctrl+Left → Switch tabs
     if (key && (key.name === 'f6' || (key.ctrl && key.name === 'right'))) {
       switchTab((activeTabIdx + 1) % tabs.length); return;
@@ -1978,7 +2009,7 @@ async function runChat(options = {}) {
           switch (cmd.toLowerCase()) {
             case '/help':
               console.log('');
-              console.log(`${OC.bold}${OC.textWhite}Доступные команды FROST CLI:${OC.reset}`);
+              console.log(`${OC.bold}${OC.textWhite}Доступные команды tokify.:${OC.reset}`);
               console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Переключение модели (или F2 / /model)${C.reset}`);
               console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Переключение мощности (High / Med / Fast)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Командная палитра (OpenCode Command Palette)${C.reset}`);
@@ -2314,7 +2345,7 @@ async function runChat(options = {}) {
         const curPower = POWER_MODES[curTab.powerIdx];
         const curMod = curTab.model;
         const systemInstruction =
-          'You are FROST CLI 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user Windows PC. ' +
+          'You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user Windows PC. ' +
           `Operating Power Level: ${curPower.label} (${curPower.instruction}). ` +
           'You have real tools: run_powershell, write_file, read_file, list_directory. ' +
           'When the user asks you to create, modify, inspect files, or perform ANY action on their PC (e.g. creating files on Desktop, running scripts): ' +
@@ -2326,8 +2357,10 @@ async function runChat(options = {}) {
         curTab.history.push({ role: 'user', content: userPrompt });
         if (curTab.history.length > 30) curTab.history = curTab.history.slice(-30);
 
+        curTab.activeSteps = [];
+
         // Repaint OpenCode chat screen immediately showing the user card
-        renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true, cwd);
+        renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true, cwd, curTab.activeSteps);
 
         const messages = [
           { role: 'system', content: systemInstruction },
@@ -2367,9 +2400,6 @@ async function runChat(options = {}) {
             if (timerId) { clearInterval(timerId); timerId = null; }
             if (isTTY) process.stdout.write('\r\x1b[K');
 
-            const elapsed = formatDuration(Date.now() - startTime);
-            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed} (Analyzing system state and executing operations...)${OC.reset}`);
-
             messages.push(choice.message);
 
             for (const tc of choice.message.tool_calls) {
@@ -2404,8 +2434,14 @@ async function runChat(options = {}) {
                 }
               }
 
-              await animateToolStep(actionDisplay, detailDisplay, 250);
+              curTab.activeSteps.push({ action: actionDisplay, detail: detailDisplay, status: 'running' });
+              renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true, cwd, curTab.activeSteps);
+
+              await sleep(180);
               const toolResult = executeSystemTool(fnName, fnArgs);
+              const curStep = curTab.activeSteps[curTab.activeSteps.length - 1];
+              if (curStep) curStep.status = 'done';
+              renderOpenCodeChat(tabs, activeTabIdx, curTab.history, curMod, curPower.label, true, cwd, curTab.activeSteps);
 
               messages.push({
                 role: 'tool',
@@ -2422,14 +2458,11 @@ async function runChat(options = {}) {
           if (timerId) { clearInterval(timerId); timerId = null; }
           if (isTTY) process.stdout.write('\r\x1b[K');
 
-          if (!finalResponseText && messages.length === curTab.history.length + 1) {
-            const elapsed = formatDuration(Date.now() - startTime);
-            console.log(`  ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed} (Direct analysis completed)${OC.reset}\n`);
-          }
-
           finalResponseText = choice.message?.content || '';
           agentLoopDone = true;
         }
+
+        curTab.activeSteps = [];
 
         if (finalResponseText) {
           const elapsedSec = Math.max(0.5, (Date.now() - startTime) / 1000);
@@ -2479,7 +2512,7 @@ function renderBanner(activeToken, webActive) {
     : chalk.red('○ Не выбран');
 
   console.log(boxen(
-    `${chalk.cyan.bold('  FROST CLI 2.0 · Autonomous Agent with Full PC Access  ')}\n\n` +
+    `${chalk.cyan.bold('  tokify. · Autonomous Agent with Full PC Access  ')}\n\n` +
     `  ${chalk.dim('Активный токен:')} ${tokMark}\n` +
     `  ${chalk.dim('DSH Web статус:')} ${webMark}\n` +
     `  ${chalk.dim('Доступ к ПК:')}    ${chalk.green('ПОЛНЫЙ ДОСТУП (PowerShell, файлы, рабочий стол)')}\n` +
@@ -2510,7 +2543,7 @@ async function menuLoop() {
       message: 'Что делаем (всё работает в одном окне):',
       pageSize: 15,
       choices: [
-        { name: '🚀  [1] Запустить FROST CLI Чат (OpenCode UI)', value: '1click' },
+        { name: '🚀  [1] Запустить tokify. Чат (OpenCode UI)', value: '1click' },
         { name: '🔑  [2] Выбрать токен из сохранённых', value: 'select' },
         { name: '➕  [3] Добавить новый API токен (sk-…)', value: 'add' },
         new inquirer.Separator(),
@@ -2601,7 +2634,7 @@ async function menuLoop() {
         console.log(chalk.green(`\n  ✓ Токен сохранён и установлен как активный!\n`));
 
         const { launchNow } = await inquirer.prompt([{
-          type: 'confirm', name: 'launchNow', message: 'Открыть FROST CLI прямо сейчас?', default: true,
+          type: 'confirm', name: 'launchNow', message: 'Открыть tokify. прямо сейчас?', default: true,
         }]);
         if (launchNow) {
           await runChat({ tokenId: id, returnToMenu: true });
