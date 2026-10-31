@@ -17,7 +17,6 @@
 
 [![Release](https://img.shields.io/badge/Release-v2.0.0-388bfd?style=flat-square&logo=github)](https://github.com/fffwwwoo/FROST-CLI/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-0078D4?style=flat-square)](.)
-[![UI Engine](https://img.shields.io/badge/UI-OpenCode_TUI-10b981?style=flat-square)](.)
 [![Reasoning](https://img.shields.io/badge/Reasoning-16K_Deep_Thinking-f0935b?style=flat-square)](.)
 [![i18n](https://img.shields.io/badge/Language-English_%7C_Russian-blue?style=flat-square)](.)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
@@ -36,7 +35,7 @@ Unlike sandboxed chat assistants, **tokify.** operates directly on your operatin
 
 ## ✨ Key Features
 
-- 🖥️ **OpenCode TUI Interface**:
+- 🖥️ **Interface**:
   - **Pinned Session Tab Bar**: Session tabs remain permanently fixed in the top terminal row, never scrolling out of view during long outputs.
   - **Elevated Input Card**: Clean prompt with accent borders, working directory indicator, and contextual status hints.
   - **Full Mouse Support**: Switch session tabs with mouse clicks and scroll chat history smoothly with the mouse wheel.
