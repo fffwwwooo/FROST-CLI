@@ -48,49 +48,166 @@ const isTTY = Boolean(process.stdout.isTTY);
 const rgb   = (r, g, b) => isTTY ? `\x1b[38;2;${r};${g};${b}m` : '';
 const bgRgb = (r, g, b) => isTTY ? `\x1b[48;2;${r};${g};${b}m` : '';
 
-// ─── OpenCode Theme (ANSI True Color) ───
+// ─── Theme Palettes (Cyber, Crimson, Emerald, Purple, Amber, Mono) ───
+const THEMES = {
+  cyber: {
+    id: 'cyber',
+    name: 'Cyber Frost (Cyan & Ice)',
+    barCyan: rgb(56, 139, 253),
+    accentBlue: rgb(56, 139, 253),
+    secondary: rgb(121, 192, 255),
+    peach: rgb(240, 147, 91),
+    bgCard: bgRgb(24, 24, 27),
+    bgTabActive: bgRgb(34, 34, 39),
+    bgModal: bgRgb(20, 20, 23),
+    bgSelected: bgRgb(56, 139, 253),
+  },
+  crimson: {
+    id: 'crimson',
+    name: 'Crimson Blood (Dark Red)',
+    barCyan: rgb(239, 68, 68),
+    accentBlue: rgb(239, 68, 68),
+    secondary: rgb(248, 113, 113),
+    peach: rgb(185, 28, 28),
+    bgCard: bgRgb(28, 20, 22),
+    bgTabActive: bgRgb(42, 26, 30),
+    bgModal: bgRgb(24, 18, 20),
+    bgSelected: bgRgb(220, 38, 38),
+  },
+  emerald: {
+    id: 'emerald',
+    name: 'Emerald Matrix (Neon Green)',
+    barCyan: rgb(16, 185, 129),
+    accentBlue: rgb(16, 185, 129),
+    secondary: rgb(52, 211, 153),
+    peach: rgb(5, 150, 105),
+    bgCard: bgRgb(20, 27, 24),
+    bgTabActive: bgRgb(26, 38, 32),
+    bgModal: bgRgb(18, 24, 20),
+    bgSelected: bgRgb(16, 185, 129),
+  },
+  purple: {
+    id: 'purple',
+    name: 'Violet Void (Amethyst)',
+    barCyan: rgb(168, 85, 247),
+    accentBlue: rgb(168, 85, 247),
+    secondary: rgb(192, 132, 252),
+    peach: rgb(244, 114, 182),
+    bgCard: bgRgb(25, 20, 30),
+    bgTabActive: bgRgb(36, 28, 44),
+    bgModal: bgRgb(22, 18, 26),
+    bgSelected: bgRgb(168, 85, 247),
+  },
+  amber: {
+    id: 'amber',
+    name: 'Amber Solar (Gold & Orange)',
+    barCyan: rgb(245, 158, 11),
+    accentBlue: rgb(245, 158, 11),
+    secondary: rgb(251, 191, 36),
+    peach: rgb(234, 88, 12),
+    bgCard: bgRgb(28, 24, 20),
+    bgTabActive: bgRgb(42, 34, 26),
+    bgModal: bgRgb(24, 20, 18),
+    bgSelected: bgRgb(245, 158, 11),
+  },
+  mono: {
+    id: 'mono',
+    name: 'Monochrome (Minimal Silver)',
+    barCyan: rgb(226, 232, 240),
+    accentBlue: rgb(226, 232, 240),
+    secondary: rgb(148, 163, 184),
+    peach: rgb(203, 213, 225),
+    bgCard: bgRgb(26, 26, 26),
+    bgTabActive: bgRgb(40, 40, 40),
+    bgModal: bgRgb(22, 22, 22),
+    bgSelected: bgRgb(226, 232, 240),
+  },
+};
+
+let currentThemeId = 'cyber';
+let currentAccessMode = 'turbo'; // 'turbo' | 'review'
+
+const SETTINGS_FILE = path.join(os.homedir(), '.frost-cli-settings.json');
+
+function saveUserSettings() {
+  try {
+    const data = { theme: currentThemeId, accessMode: currentAccessMode };
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch {}
+}
+
 const OC = {
   reset:  isTTY ? '\x1b[0m' : '',
   bold:   isTTY ? '\x1b[1m' : '',
   dim:    isTTY ? '\x1b[2m' : '',
-  bgCard:      bgRgb(24, 24, 27),        // #18181b
-  bgTabActive: bgRgb(34, 34, 39),        // #222227
-  bgModal:     bgRgb(20, 20, 23),        // #141417
-  bgSelected:  bgRgb(240, 147, 91),      // #f0935b peach pill
+  bgCard:      bgRgb(24, 24, 27),
+  bgTabActive: bgRgb(34, 34, 39),
+  bgModal:     bgRgb(20, 20, 23),
+  bgSelected:  bgRgb(56, 139, 253),
   fgBlack:     rgb(0, 0, 0),
-  barCyan:     rgb(56, 139, 253),        // #388bfd
-  accentBlue:  rgb(56, 139, 253),        // #388bfd
-  textWhite:   rgb(240, 246, 252),       // #f0f6fc
-  textMuted:   rgb(139, 148, 158),       // #8b949e
-  textDim:     rgb(110, 118, 129),       // #6e7681
-  catViolet:   rgb(147, 130, 255),       // #9382ff
-  peach:       rgb(240, 147, 91),        // #f0935b
-  green:       rgb(52, 211, 153),        // #34d399
-  red:         rgb(248, 113, 113),       // #f87171
-  yellow:      rgb(234, 179, 8),         // #eab308
+  barCyan:     rgb(56, 139, 253),
+  accentBlue:  rgb(56, 139, 253),
+  textWhite:   rgb(240, 246, 252),
+  textMuted:   rgb(139, 148, 158),
+  textDim:     rgb(110, 118, 129),
+  catViolet:   rgb(147, 130, 255),
+  peach:       rgb(240, 147, 91),
+  green:       rgb(52, 211, 153),
+  red:         rgb(248, 113, 113),
+  yellow:      rgb(234, 179, 8),
+  cyan:        rgb(56, 139, 253),
+  snow:        rgb(240, 246, 252),
+  dimText:     rgb(110, 118, 129),
+  ice:         rgb(121, 192, 255),
+  darkLine:    rgb(40, 45, 55),
 };
 
-// Legacy color aliases (used throughout slash commands & agent loop)
-const C = {
-  reset:    OC.reset,
-  bold:     OC.bold,
-  dim:      OC.dim,
-  italic:   isTTY ? '\x1b[3m' : '',
-  under:    isTTY ? '\x1b[4m' : '',
-  cyan:     rgb(88, 166, 255),
-  ice:      rgb(121, 192, 255),
-  green:    rgb(63, 185, 80),
-  orange:   rgb(255, 140, 0),
-  yellow:   rgb(234, 179, 8),
-  red:      rgb(248, 81, 73),
-  purple:   rgb(188, 140, 255),
-  snow:     rgb(240, 246, 252),
-  dimText:  rgb(139, 148, 158),
-  dimGray:  rgb(110, 118, 129),
-  darkLine: rgb(48, 54, 61),
-};
+const C = OC;
 
-const BAR = OC.barCyan + '▌' + OC.reset;
+let BAR = OC.barCyan + '▌' + OC.reset;
+
+function applyTheme(themeId, save = true) {
+  if (!THEMES[themeId]) themeId = 'cyber';
+  currentThemeId = themeId;
+  const t = THEMES[themeId];
+  OC.barCyan    = t.barCyan;
+  OC.accentBlue = t.accentBlue;
+  OC.peach      = t.peach;
+  OC.bgCard     = t.bgCard;
+  OC.bgTabActive= t.bgTabActive;
+  OC.bgModal    = t.bgModal;
+  OC.bgSelected = t.bgSelected;
+  OC.cyan       = t.barCyan;
+  OC.ice        = t.secondary;
+  BAR = OC.barCyan + '▌' + OC.reset;
+  if (save) saveUserSettings();
+}
+
+function loadUserSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+      if (data.theme && THEMES[data.theme]) applyTheme(data.theme, false);
+      if (data.accessMode === 'review' || data.accessMode === 'turbo') currentAccessMode = data.accessMode;
+    }
+  } catch {}
+}
+
+loadUserSettings();
+
+// Clipboard helper for Ctrl+V
+function getClipboardText() {
+  try {
+    return execSync('powershell.exe -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Clipboard"', {
+      timeout: 2000,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    }).replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
 
 // ─── FROST Block Logo (Prominent OpenCode silver→white horizontal gradient) ───
 const FROST_LOGO = [
@@ -627,16 +744,19 @@ async function callChatWithTools(messages, model, key, power = POWER_MODES[0]) {
 // ── Command Palette Items ──
 const PALETTE_ITEMS = [
   { type: 'header', text: 'Suggested' },
-  { id: 'switch_session', title: 'Switch session',    key: 'ctrl+x l' },
-  { id: 'new_session',    title: 'New session',       key: 'ctrl+x n' },
-  { id: 'switch_model',   title: 'Switch model',      key: 'ctrl+x m' },
-  { id: 'switch_power',   title: 'Thinking power',    key: 'ctrl+x p' },
-  { id: 'token_manager',  title: 'Token manager',     key: 'ctrl+x t' },
+  { id: 'switch_session', title: 'Switch session',      key: 'ctrl+x l' },
+  { id: 'new_session',    title: 'New session',         key: 'ctrl+t / +' },
+  { id: 'switch_access',  title: 'Access Mode (Review / Turbo)', key: 'ctrl+a' },
+  { id: 'switch_theme',   title: 'Theme & UI Colors',   key: '' },
+  { id: 'switch_model',   title: 'Switch model',        key: 'shift+tab' },
+  { id: 'switch_power',   title: 'Thinking power',      key: 'tab' },
+  { id: 'token_manager',  title: 'Token manager',       key: 'ctrl+x t' },
   { type: 'header', text: 'Prompt & System' },
-  { id: 'stats',          title: 'Token stats / balance', key: '' },
-  { id: 'clear_chat',     title: 'Clear history',     key: '' },
-  { id: 'help',           title: 'Show help',         key: '' },
-  { id: 'exit',           title: 'Exit FROST CLI',    key: '' },
+  { id: 'view_history',   title: 'View full history',   key: '/history' },
+  { id: 'stats',          title: 'Token stats / balance', key: '/stats' },
+  { id: 'clear_chat',     title: 'Clear history',       key: '/clear' },
+  { id: 'help',           title: 'Show help',           key: '/help' },
+  { id: 'exit',           title: 'Exit FROST CLI',      key: '/exit' },
 ];
 
 function getFilteredPaletteItems(query) {
@@ -812,9 +932,9 @@ function renderShimmerBeam(width = 16, pos = 0) {
     const trailIdx = dist + 4;
     if (trailIdx >= 0 && trailIdx < trail.length) {
       const c = trail[trailIdx];
-      out += rgb(c[0], c[1], c[2]) + '■' + OC.reset;
+      out += rgb(c[0], c[1], c[2]) + '█' + OC.reset;
     } else {
-      out += rgb(30, 35, 42) + '■' + OC.reset;
+      out += rgb(40, 45, 55) + '·' + OC.reset;
     }
   }
   return out;
@@ -902,46 +1022,157 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   console.log('');
 }
 
-// ── Render: OpenCode Chat Screen ──
+// ── Render: OpenCode Chat Screen (with Persistent Pinned Tab Bar & Separated Viewport) ──
 function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPower, isBusy, cwd = '') {
   const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
   const cardW = Math.max(50, cols - 6);
 
   console.clear();
 
-  // 1. Tab bar at top
+  // 1. Tab bar at top (Row 1 - ALWAYS PINNED, NEVER SCROLLS OFF)
   console.log(renderTabBar(tabs, activeTabIdx));
   console.log('');
 
-  // 2. Chat messages (single-column, naturally wrapping, full markdown)
+  // 2. Format chat messages into lines
+  const chatLines = [];
+
   for (let idx = 0; idx < history.length; idx++) {
     const m = history[idx];
     if (m.role === 'user') {
       const content = m.content || '';
       const padLen = Math.max(1, cardW - 4 - stripAnsi(content).length);
-      console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
-      console.log('');
+      chatLines.push(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + content + OC.bgCard + ' '.repeat(padLen) + ' ' + OC.reset);
+      chatLines.push('');
     } else if (m.role === 'assistant') {
-      // Thought indicator
+      // OpenCode collapsed thought indicator
       const thoughtDur = m.thought || m.duration || '2s';
-      console.log('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
+      chatLines.push('  ' + OC.textDim + '+ Thought · ' + thoughtDur + OC.reset);
 
       // Markdown formatted blocks
       const blocks = renderMarkdownBlocks(m.content, cardW);
       for (const b of blocks) {
-        console.log(b);
+        chatLines.push(b);
       }
-      console.log('');
+
+      // OpenCode assistant message footer (Image 3: Build · Flint 40B Free · 3.2s · 43.2 tok/s)
+      const dur = m.duration || '2.8s';
+      const spd = m.speed || '38.4 tok/s';
+      const meta = '  ' + OC.barCyan + 'Autonomous' + OC.textDim + ' · ' +
+        OC.textWhite + (m.model || currentModel) + ' ' + (m.power || currentPower) + OC.textDim +
+        ' · ' + dur + ' · ' + spd + OC.reset;
+      chatLines.push(meta);
+      chatLines.push('');
     }
   }
 
-  // 3. Status & shortcuts line immediately above prompt
-  const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '';
-  const rightInfo = OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.textDim + '   shift+tab model   ctrl+p commands';
+  // 3. Viewport calculation: clamp visible lines so total height NEVER exceeds terminal rows!
+  const maxViewportLines = Math.max(6, rows - 5);
+  const visibleLines = chatLines.length > maxViewportLines
+    ? chatLines.slice(-maxViewportLines)
+    : chatLines;
+
+  for (const line of visibleLines) {
+    console.log(line);
+  }
+
+  // 4. Separated bottom card status & shortcuts line immediately above prompt
+  const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '~';
+  const modeBadge = currentAccessMode === 'review'
+    ? OC.peach + '🛡️ Review' + OC.reset
+    : OC.green + '⚡ Turbo' + OC.reset;
+  const rightInfo = OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.reset +
+    ' · ' + modeBadge + OC.textDim + '   shift+tab model   ctrl+p commands';
   const rightVisLen = stripAnsi(rightInfo).length;
   const midSpace = ' '.repeat(Math.max(2, cols - shortCwd.length - rightVisLen - 2));
 
   console.log(' ' + OC.textDim + shortCwd + midSpace + rightInfo + OC.reset);
+}
+
+// ── Render: Access Mode Modal (Turbo vs Request Review) ──
+function renderAccessModeModal(selectedIndex) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const modalW = Math.min(62, cols - 8);
+  const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
+
+  console.clear();
+
+  const topSpace = Math.max(2, Math.floor(rows * 0.18));
+  for (let i = 0; i < topSpace; i++) console.log('');
+
+  // Header
+  const titleLeft = '  ' + OC.bold + OC.textWhite + 'Access Mode' + OC.reset;
+  const escRight = OC.textDim + 'esc' + OC.reset + '  ';
+  const headerPad = ' '.repeat(Math.max(1, modalW - 17));
+  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  const options = [
+    { id: 'review', title: 'Request Review', desc: 'Every command requires approval.', icon: '🛡️' },
+    { id: 'turbo',  title: 'Turbo',          desc: 'Run all commands without restrictions.', icon: '🛡️' },
+  ];
+
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const isSel = (i === selectedIndex);
+    const isActive = (opt.id === currentAccessMode);
+    const checkmark = isActive ? OC.green + '✓' + OC.reset : ' ';
+
+    const titleLine = `  ${opt.icon}  ${opt.title}`;
+    const descLine  = `      ${opt.desc}`;
+    const tPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(titleLine).length - 4));
+    const dPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(descLine).length));
+
+    if (isSel) {
+      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
+      console.log(leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset);
+    } else {
+      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
+      console.log(leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset);
+    }
+    console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  }
+}
+
+// ── Render: Theme & UI Colors Modal ──
+function renderThemeModal(selectedIndex) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const modalW = Math.min(64, cols - 8);
+  const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
+
+  console.clear();
+
+  const topSpace = Math.max(2, Math.floor(rows * 0.15));
+  for (let i = 0; i < topSpace; i++) console.log('');
+
+  // Header
+  const titleLeft = '  ' + OC.bold + OC.textWhite + 'Theme & UI Colors' + OC.reset;
+  const escRight = OC.textDim + 'esc' + OC.reset + '  ';
+  const headerPad = ' '.repeat(Math.max(1, modalW - 23));
+  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  const themeKeys = Object.keys(THEMES);
+  for (let i = 0; i < themeKeys.length; i++) {
+    const k = themeKeys[i];
+    const th = THEMES[k];
+    const isSel = (i === selectedIndex);
+    const isActive = (k === currentThemeId);
+    const checkmark = isActive ? OC.green + '✓' + OC.reset : ' ';
+
+    const swatch = th.barCyan + '■' + th.secondary + '■' + th.peach + '■' + OC.reset;
+    const titleLine = `  ${swatch}  ${th.name}`;
+    const tPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(titleLine).length - 4));
+
+    if (isSel) {
+      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
+    } else {
+      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
+    }
+  }
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
 }
 
 // ── Render: Command Palette Modal ──
@@ -1035,6 +1266,32 @@ async function animateToolStep(actionText, detailText, durationMs = 300) {
 }
 
 
+function askReviewApproval(promptText) {
+  return new Promise((resolve) => {
+    process.stdout.write(promptText);
+    const wasRaw = process.stdin.isRaw;
+    if (process.stdin.setRawMode) process.stdin.setRawMode(true);
+    process.stdin.resume();
+
+    const onKey = (chunk) => {
+      process.stdin.removeListener('data', onKey);
+      if (process.stdin.setRawMode && wasRaw !== undefined) {
+        process.stdin.setRawMode(wasRaw);
+      }
+      const s = String(chunk);
+      if (s === 'y' || s === 'Y' || s === '\r' || s === '\n' || s === ' ') {
+        process.stdout.write(OC.green + 'Approved ✓\n\n' + OC.reset);
+        resolve(true);
+      } else {
+        process.stdout.write(OC.red + 'Declined ✗\n\n' + OC.reset);
+        resolve(false);
+      }
+    };
+
+    process.stdin.once('data', onKey);
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // INTERACTIVE SINGLE-WINDOW CHAT (OpenCode-Style)
 // ═══════════════════════════════════════════════════════════════════════
@@ -1087,10 +1344,16 @@ async function runChat(options = {}) {
   let activeTabIdx = 0;
   const getActiveTab = () => tabs[activeTabIdx] || tabs[0];
 
-  // ── Command Palette State ──
+  // ── Command Palette & Modal States ──
   let isPaletteOpen = false;
   let paletteIndex = 0;
   let paletteQuery = '';
+
+  let isAccessModalOpen = false;
+  let accessModalIndex = currentAccessMode === 'turbo' ? 1 : 0;
+
+  let isThemeModalOpen = false;
+  let themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
 
   // ── Prompt String (OpenCode style: card with cyan bar) ──
   const getPromptString = () => {
@@ -1265,6 +1528,30 @@ async function runChat(options = {}) {
       case 'new_session':
         createNewTab();
         break;
+      case 'switch_access':
+        isAccessModalOpen = true;
+        accessModalIndex = currentAccessMode === 'turbo' ? 1 : 0;
+        renderAccessModeModal(accessModalIndex);
+        return;
+      case 'switch_theme':
+        isThemeModalOpen = true;
+        themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
+        renderThemeModal(themeModalIndex);
+        return;
+      case 'view_history':
+        refreshCurrentView();
+        console.log(`\n${OC.bold}${OC.textWhite}─── Full Session History (${getActiveTab().title}) ───${OC.reset}\n`);
+        for (const m of getActiveTab().history) {
+          if (m.role === 'user') {
+            console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + m.content + OC.reset + '\n');
+          } else {
+            console.log('  ' + OC.textDim + '+ Thought · ' + (m.thought || '2s') + OC.reset);
+            for (const b of renderMarkdownBlocks(m.content, 90)) console.log(b);
+            console.log('');
+          }
+        }
+        safePrompt();
+        return;
       case 'switch_model':
         cycleModel();
         break;
@@ -1330,12 +1617,18 @@ async function runChat(options = {}) {
         console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Cycle model${C.reset}`);
         console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Cycle power (High/Medium/Fast)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Access mode (Request Review / Turbo)${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Theme & UI colors${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Paste from Windows clipboard${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab (or click +)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Close current tab${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Switch between tabs${C.reset}`);
         console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Jump to tab 1..9${C.reset}`);
         console.log(`  ${C.cyan}/model [name]${C.reset}   ${C.dimText}— Switch model${C.reset}`);
         console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Switch power level${C.reset}`);
+        console.log(`  ${C.cyan}/access${C.reset}         ${C.dimText}— Toggle Access mode (Turbo/Review)${C.reset}`);
+        console.log(`  ${C.cyan}/theme${C.reset}          ${C.dimText}— Change color theme${C.reset}`);
+        console.log(`  ${C.cyan}/history${C.reset}        ${C.dimText}— View full session history${C.reset}`);
         console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Token usage & balance${C.reset}`);
         console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— List saved tokens${C.reset}`);
         console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Clear chat history${C.reset}`);
@@ -1357,9 +1650,63 @@ async function runChat(options = {}) {
   // ── Keyboard Interceptor (includes Command Palette modal handling) ──
   const origTTYWrite = rl._ttyWrite.bind(rl);
   rl._ttyWrite = function(s, key) {
+    // ── Access Mode Modal ──
+    if (isAccessModalOpen) {
+      if (key && (key.name === 'escape' || (key.ctrl && key.name === 'c'))) {
+        isAccessModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      if (key && (key.name === 'up' || key.name === 'k')) {
+        accessModalIndex = (accessModalIndex - 1 + 2) % 2;
+        renderAccessModeModal(accessModalIndex);
+        return;
+      }
+      if (key && (key.name === 'down' || key.name === 'j')) {
+        accessModalIndex = (accessModalIndex + 1) % 2;
+        renderAccessModeModal(accessModalIndex);
+        return;
+      }
+      if (key && (key.name === 'return' || key.name === 'space')) {
+        currentAccessMode = accessModalIndex === 1 ? 'turbo' : 'review';
+        saveUserSettings();
+        isAccessModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      return;
+    }
+
+    // ── Theme / UI Colors Modal ──
+    if (isThemeModalOpen) {
+      const themeKeys = Object.keys(THEMES);
+      if (key && (key.name === 'escape' || (key.ctrl && key.name === 'c'))) {
+        isThemeModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      if (key && (key.name === 'up' || key.name === 'k')) {
+        themeModalIndex = (themeModalIndex - 1 + themeKeys.length) % themeKeys.length;
+        renderThemeModal(themeModalIndex);
+        return;
+      }
+      if (key && (key.name === 'down' || key.name === 'j')) {
+        themeModalIndex = (themeModalIndex + 1) % themeKeys.length;
+        renderThemeModal(themeModalIndex);
+        return;
+      }
+      if (key && (key.name === 'return' || key.name === 'space')) {
+        applyTheme(themeKeys[themeModalIndex], true);
+        isThemeModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      return;
+    }
+
     // ── Command Palette Mode ──
     if (isPaletteOpen) {
-      if (key && key.name === 'escape') {
+      if (key && (key.name === 'escape' || (key.ctrl && key.name === 'c'))) {
         isPaletteOpen = false;
         paletteQuery = '';
         paletteIndex = 0;
@@ -1411,6 +1758,18 @@ async function runChat(options = {}) {
       rl._refreshLine();
     }
 
+    // Ctrl+V → Paste from Windows system clipboard
+    if ((key && key.ctrl && key.name === 'v') || s === '\x16') {
+      const text = getClipboardText();
+      if (text) {
+        const cur = rl.cursor;
+        rl.line = rl.line.slice(0, cur) + text + rl.line.slice(cur);
+        rl.cursor = cur + text.length;
+        rl._refreshLine();
+      }
+      return;
+    }
+
     // '+' key creates a new tab when input line is empty
     if (s === '+' && rl.line.trim() === '') {
       createNewTab();
@@ -1424,6 +1783,24 @@ async function runChat(options = {}) {
       paletteIndex = 0;
       paletteQuery = '';
       renderCommandPalette('', 0, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+      return;
+    }
+
+    // Ctrl+A / F4 → Open Access Mode Modal (Request Review vs Turbo)
+    if ((key && key.ctrl && key.name === 'a') || (key && key.name === 'f4')) {
+      if (isBusy) return;
+      isAccessModalOpen = true;
+      accessModalIndex = currentAccessMode === 'turbo' ? 1 : 0;
+      renderAccessModeModal(accessModalIndex);
+      return;
+    }
+
+    // Ctrl+K / F3 → Open Themes & UI Colors Modal
+    if ((key && key.ctrl && key.name === 'k') || (key && key.name === 'f3')) {
+      if (isBusy) return;
+      isThemeModalOpen = true;
+      themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
+      renderThemeModal(themeModalIndex);
       return;
     }
 
@@ -1469,6 +1846,7 @@ async function runChat(options = {}) {
       const input = line.trim();
       if (!input) { safePrompt(); return; }
 
+      let timerId = null;
       try {
         if (input.startsWith('/')) {
           const [cmd, ...args] = input.split(/\s+/);
@@ -1481,10 +1859,16 @@ async function runChat(options = {}) {
               console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Переключение модели (или F2 / /model)${C.reset}`);
               console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Переключение мощности (High / Med / Fast)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Командная палитра (OpenCode Command Palette)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую сессию (или /new)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Режим доступа (Request Review / Turbo)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Смена темы интерфейса (Цвета / Crimson / Cyber)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Вставка текста из буфера обмена Windows${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую сессию (или /new / +)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Закрыть текущую сессию (или /close)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Переключение между сессиями (или /tab)${C.reset}`);
               console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Мгновенный переход на сессию 1..9${C.reset}`);
+              console.log(`  ${C.cyan}/access${C.reset}         ${C.dimText}— Настройка режима доступа (Review / Turbo)${C.reset}`);
+              console.log(`  ${C.cyan}/theme${C.reset}          ${C.dimText}— Выбор цветовой темы${C.reset}`);
+              console.log(`  ${C.cyan}/history${C.reset}        ${C.dimText}— Показать полную историю сессии${C.reset}`);
               console.log(`  ${C.cyan}/tab [1-9]${C.reset}      ${C.dimText}— Переключение на сессию по номеру${C.reset}`);
               console.log(`  ${C.cyan}/new [имя]${C.reset}      ${C.dimText}— Создать новую сессию${C.reset}`);
               console.log(`  ${C.cyan}/close [№]${C.reset}      ${C.dimText}— Закрыть сессию${C.reset}`);
@@ -1693,6 +2077,73 @@ async function runChat(options = {}) {
               return;
             }
 
+            case '/access':
+            case '/mode': {
+              const clean = argStr.toLowerCase();
+              if (clean === 'turbo' || clean === 't') {
+                currentAccessMode = 'turbo';
+                saveUserSettings();
+                refreshCurrentView();
+                return;
+              }
+              if (clean === 'review' || clean === 'r') {
+                currentAccessMode = 'review';
+                saveUserSettings();
+                refreshCurrentView();
+                return;
+              }
+              isAccessModalOpen = true;
+              accessModalIndex = currentAccessMode === 'turbo' ? 1 : 0;
+              renderAccessModeModal(accessModalIndex);
+              return;
+            }
+
+            case '/turbo': {
+              currentAccessMode = 'turbo';
+              saveUserSettings();
+              refreshCurrentView();
+              return;
+            }
+
+            case '/review': {
+              currentAccessMode = 'review';
+              saveUserSettings();
+              refreshCurrentView();
+              return;
+            }
+
+            case '/theme':
+            case '/colors': {
+              if (argStr) {
+                const targetKey = argStr.toLowerCase().trim();
+                if (THEMES[targetKey]) {
+                  applyTheme(targetKey, true);
+                  refreshCurrentView();
+                  return;
+                }
+              }
+              isThemeModalOpen = true;
+              themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
+              renderThemeModal(themeModalIndex);
+              return;
+            }
+
+            case '/history': {
+              refreshCurrentView();
+              console.log(`\n${OC.bold}${OC.textWhite}─── Full Session History (${getActiveTab().title}) ───${OC.reset}\n`);
+              for (const m of getActiveTab().history) {
+                if (m.role === 'user') {
+                  console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + m.content + OC.reset + '\n');
+                } else {
+                  console.log('  ' + OC.textDim + '+ Thought · ' + (m.thought || '2s') + OC.reset);
+                  for (const b of renderMarkdownBlocks(m.content, 90)) console.log(b);
+                  console.log('');
+                }
+              }
+              safePrompt();
+              return;
+            }
+
             case '/clear':
               getActiveTab().history = [];
               getActiveTab().title = 'New session';
@@ -1761,7 +2212,7 @@ async function runChat(options = {}) {
         ];
 
         const startTime = Date.now();
-        let timerId = null;
+        timerId = null;
 
         const startThinkingShimmer = () => {
           if (!isTTY) return null;
@@ -1774,7 +2225,7 @@ async function runChat(options = {}) {
             if (beamPos >= shimmerWidth - 1) { beamDir = -1; beamPos = shimmerWidth - 1; }
             else if (beamPos <= 0) { beamDir = 1; beamPos = 0; }
             const beam = renderShimmerBeam(shimmerWidth, beamPos);
-            process.stdout.write(`\r\x1b[K  ${beam} ${OC.textDim}esc interrupt${OC.reset}   ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed}…${OC.reset}`);
+            process.stdout.write(`\r\x1b[K  ${beam}   ${OC.barCyan}●${OC.reset} ${OC.textDim}Thought for ${elapsed}…${OC.reset}`);
           }, 40);
         };
 
@@ -1814,6 +2265,20 @@ async function runChat(options = {}) {
                 actionDisplay = `Read file (${path.basename(fnArgs.path || 'file')})`;
               } else if (fnName === 'list_directory') {
                 actionDisplay = `Inspected directory (${fnArgs.path || '.'})`;
+              }
+
+              // In Request Review mode, ask approval before executing
+              if (currentAccessMode === 'review') {
+                const promptMsg = `\n  ${OC.peach}🛡️ [Review Request]${OC.reset} ${OC.bold}${actionDisplay}${OC.reset} ${OC.textDim}${detailDisplay}${OC.reset}\n  ${OC.barCyan}Execute this command? [Y/n]: ${OC.reset}`;
+                const approved = await askReviewApproval(promptMsg);
+                if (!approved) {
+                  messages.push({
+                    role: 'tool',
+                    tool_call_id: tc.id,
+                    content: 'Command was declined by user in Request Review mode.',
+                  });
+                  continue;
+                }
               }
 
               await animateToolStep(actionDisplay, detailDisplay, 250);
