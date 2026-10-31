@@ -15,134 +15,146 @@
 
 **Autonomous AI Agent with Deep Reasoning & Cross-Platform System Access**
 
-[![Release](https://img.shields.io/badge/Release-v2.0.0-388bfd?style=flat-square&logo=github)](releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-388bfd?style=flat-square&logo=github)](https://github.com/fffwwwoo/FROST-CLI/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-0078D4?style=flat-square)](.)
 [![UI Engine](https://img.shields.io/badge/UI-OpenCode_TUI-10b981?style=flat-square)](.)
 [![Reasoning](https://img.shields.io/badge/Reasoning-16K_Deep_Thinking-f0935b?style=flat-square)](.)
+[![i18n](https://img.shields.io/badge/Language-English_%7C_Russian-blue?style=flat-square)](.)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-## ⚡ О проекте
+## ⚡ About The Project
 
-**tokify.** — автономный кроссплатформенный терминальный AI-агент и консольный клиент, созданный для решения инженерных, системных и программных задач в средах **Windows, macOS и Linux** с глубоким пошаговым рассуждением (Chain-of-Thought).
+**tokify.** is a powerful, autonomous, cross-platform terminal AI agent and console client engineered for software engineering, system administration, and automation across **Windows, macOS, and Linux** with deep step-by-step reasoning (Chain-of-Thought).
 
-В отличие от изолированных чат-ботов, **tokify.** работает непосредственно в вашей операционной системе: выполняет команды терминала (PowerShell в Windows, Bash/Zsh в macOS и Linux), создаёт и модифицирует файлы, анализирует код и автоматизирует задачи в реальном времени.
+Unlike sandboxed chat assistants, **tokify.** operates directly on your operating system: executing terminal commands (PowerShell on Windows, Bash/Zsh on macOS and Linux), reading, writing, and editing files, analyzing codebases, and automating complex workflows in real time.
 
 ---
 
-## ✨ Ключевые возможности
+## ✨ Key Features
 
-- 🖥️ **Интерфейс**:
-  - Фиксированная панель сессий в первой строке терминала (вкладки всегда на виду и не смещаются при скролле вывода).
-  - Элегантная карточка ввода с акцентным левым бордером и контекстным статус-баром.
-  - Поддержка мыши: переключение сессий и клики по элементам интерфейса.
-  - Сворачиваемые блоки мышления (`Thought for Xs...`) и интерактивный спиннер шагов выполнения.
+- 🖥️ **OpenCode TUI Interface**:
+  - **Pinned Session Tab Bar**: Session tabs remain permanently fixed in the top terminal row, never scrolling out of view during long outputs.
+  - **Elevated Input Card**: Clean prompt with accent borders, working directory indicator, and contextual status hints.
+  - **Full Mouse Support**: Switch session tabs with mouse clicks and scroll chat history smoothly with the mouse wheel.
+  - **Collapsible Reasoning**: Collapsible thinking blocks (`Thought for Xs...`) and interactive step execution spinners.
 
-- 🌐 **Кроссплатформенный доступ (Windows / macOS / Linux)**:
-  - **Windows**: прямое выполнение команд через PowerShell с корректным декодированием CP866/UTF-8 и генерацией скриптов с UTF-8 BOM.
-  - **macOS & Linux**: выполнение системных команд напрямую в нативном шелле пользователя (`$SHELL`, `bash`, `zsh`), автоматический `chmod +x` для создаваемых `.sh` скриптов.
-  - **Буфер обмена**: универсальная вставка по <kbd>Ctrl</kbd> + <kbd>V</kbd> через `Get-Clipboard` (Windows), `pbpaste` (macOS), `wl-paste` / `xclip` / `xsel` (Linux).
+- 🌐 **True Cross-Platform Access (Windows / macOS / Linux)**:
+  - **Windows**: Direct command execution via PowerShell with UTF-8 / CP866 encoding handling and UTF-8 BOM script generation.
+  - **macOS & Linux**: Native shell execution (`$SHELL`, `bash`, `zsh`), automatic `chmod +x` permissions on script creation.
+  - **Universal Clipboard**: Native <kbd>Ctrl</kbd> + <kbd>V</kbd> paste across all platforms (`Get-Clipboard` on Windows, `pbpaste` on macOS, `wl-paste` / `xclip` / `xsel` on Linux).
 
-- 🛡️ **Режимы доступа к системе (Access Modes)**:
-  - **Turbo** — автономное выполнение скриптов и файловых операций без ручных подтверждений.
-  - **Request Review** — режим повышенной безопасности с подтверждением каждой деструктивной команды перед запуском.
-  - Быстрое переключение по <kbd>Ctrl</kbd> + <kbd>A</kbd> или через команду `/mode`.
+- 🛡️ **Configurable System Access Modes**:
+  - **Turbo Mode** — Autonomous script execution and file operations without manual prompts.
+  - **Request Review Mode** — High-security mode requiring explicit user confirmation before executing any system command.
+  - Quick toggle via <kbd>Ctrl</kbd> + <kbd>A</kbd>, <kbd>F4</kbd>, or `/mode`.
 
-- 📑 **Многозадачные сессии (Pinned Tabs)**:
-  - До 9 независимых вкладок в рамках одного окна консоли.
-  - У каждой сессии своя история сообщений, активная AI-модель и уровень рассуждений.
-  - Умное автоименование вкладок по смыслу первого запроса.
-  - Быстрое переключение стрелками <kbd>←</kbd> / <kbd>→</kbd>, кликом мыши или <kbd>Alt</kbd> + <kbd>1..9</kbd>.
+- 🌍 **Multi-Language Support (i18n)**:
+  - **English (Default)**: Full UI localization, command descriptions, and English AI responses.
+  - **Russian**: Complete Russian UI localization and Russian AI responses.
+  - Instant language switching via `/lang` (interactive modal), `/lang [en|ru]`, or through the Command Palette (<kbd>Ctrl</kbd> + <kbd>P</kbd>).
 
-- 🎨 **6 цветовых тем интерфейса**:
+- 📑 **Multitasking Sessions (Pinned Tabs)**:
+  - Up to 9 independent tabs in a single console window.
+  - Each session retains its own chat history, active AI model, reasoning power level, and scroll state.
+  - Intelligent tab auto-naming based on the intent of your first prompt.
+  - Swift navigation with <kbd>←</kbd> / <kbd>→</kbd> arrows, mouse clicks, or <kbd>Alt</kbd> + <kbd>1..9</kbd>.
+
+- 🎨 **6 Built-in Color Themes**:
   - `Crimson Dark`, `Cyber Ice`, `Neon Emerald`, `Amber Gold`, `Deep Purple`, `Monokai Monochrome`.
-  - Моментальное переключение по <kbd>Ctrl</kbd> + <kbd>K</kbd> или <kbd>F3</kbd> с автосохранением в настройках.
+  - Instant switching with <kbd>Ctrl</kbd> + <kbd>K</kbd> or <kbd>F3</kbd>, auto-saved to user settings.
 
-- 📦 **Автономные бинарники & запуск без зависимостей**:
-  - Сборка standalone-исполняемых файлов (Node.js Single Executable Application): `tokify.exe` для Windows, `tokify` для Linux и macOS.
-  - Интеграция с локальным сервисом DSH Web (:3080) и проверка баланса токенов.
+- 📦 **Standalone Binaries & Zero-Dependency Run**:
+  - Self-contained executable builds powered by Node.js Single Executable Application (SEA): `tokify.exe` on Windows, `tokify` on Linux and macOS.
+  - Seamless integration with local DSH Web gateway (:3080) and token balance tracking.
 
 ---
 
-## ⌨️ Горячие клавиши
+## ⌨️ Keyboard Shortcuts
 
-| Горячая клавиша | Действие |
+| Shortcut | Description |
 | :--- | :--- |
-| <kbd>Колёсико мыши</kbd> | Прокрутка длинных ответов и истории чата вверх/вниз |
-| <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | Постраничная прокрутка длинных сообщений |
-| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Плавный скролл истории чата (Esc — мгновенный возврат вниз) |
-| <kbd>←</kbd> / <kbd>→</kbd> | Переключение между сессиями чата (на пустой строке ввода) |
-| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Переключение режима доступа (`Turbo` ↔ `Request Review`) |
-| <kbd>Ctrl</kbd> + <kbd>K</kbd> *(или F3)* | Переключение цветовой темы оформления |
-| <kbd>Shift</kbd> + <kbd>Tab</kbd> *(или F2)* | Смена AI-модели текущей сессии |
-| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Вставка текста / кода из системного буфера обмена |
-| <kbd>Ctrl</kbd> + <kbd>T</kbd> | Создать новую сессию |
-| <kbd>Ctrl</kbd> + <kbd>W</kbd> | Закрыть текущую сессию |
-| <kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>9</kbd> | Быстрый переход к сессии с номером 1-9 |
-| <kbd>Esc</kbd> | Прервать генерацию / сбросить скролл в самый низ |
+| <kbd>Mouse Wheel</kbd> | Smooth chat scroll up / down through long answers and history |
+| <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | Page-by-page scrolling through conversation history |
+| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Fine-grained line scrolling (Esc returns immediately to bottom) |
+| <kbd>←</kbd> / <kbd>→</kbd> | Switch between session tabs (when input line is empty) |
+| <kbd>Ctrl</kbd> + <kbd>P</kbd> | Open OpenCode Command Palette |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> *(or F4)* | Toggle Access Mode (`Turbo` ↔ `Request Review`) |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> *(or F3)* | Open Color Themes & UI palette modal |
+| <kbd>Shift</kbd> + <kbd>Tab</kbd> *(or F2)* | Cycle AI model for current session |
+| <kbd>Tab</kbd> | Cycle reasoning power: High (16K) / Medium (8K) / Fast (4K) |
+| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Paste text or code from system clipboard |
+| <kbd>Ctrl</kbd> + <kbd>T</kbd> *(or `+`)* | Create a new session tab |
+| <kbd>Ctrl</kbd> + <kbd>W</kbd> | Close active session tab |
+| <kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>9</kbd> | Jump directly to session tab 1 through 9 |
+| <kbd>Esc</kbd> | Dismiss modals / reset chat scroll to the very bottom |
 
 ---
 
-## 💬 Встроенные команды чата
+## 💬 Built-in Slash Commands
 
-```bash
-/help                # Справка по всем возможностям и хоткеям
-/new [название]      # Создать новую вкладку сессии
-/tab [1-9]           # Переключиться на вкладку по номеру
-/close [номер]       # Закрыть вкладку
-/rename <название>   # Переименовать активную вкладку
-/mode [review|turbo] # Сменить режим доступа к системе
-/theme [1-6]         # Сменить цветовую тему интерфейса
-/model [номер|имя]   # Выбрать AI-модель
-/power [1-3]         # Уровень мышления: 1 (High 16K), 2 (Medium 8K), 3 (Fast 4K)
-/plan <задача>       # Архитектурное планирование с пошаговым выполнением
-/tokens              # Просмотр списка и переключение активных токенов
-/web                 # Проверить статус фонового сервиса DSH Web (:3080)
-/clear               # Очистить историю текущей сессии
-/exit                # Завершение работы
-```
+| Command | Description |
+| :--- | :--- |
+| `/help` | Comprehensive cheatsheet of all shortcuts and commands |
+| `/lang [en\|ru]` | Switch UI and AI language (English / Russian) |
+| `/history` | Display complete session history digest with message log |
+| `/mode [review\|turbo]` | Switch system access mode |
+| `/theme [1-6]` | Switch or select UI color theme |
+| `/model [name\|idx]` | Choose or cycle active AI model |
+| `/power [1-3]` | Set reasoning level: 1 (High 16K), 2 (Medium 8K), 3 (Fast 4K) |
+| `/tokens` | List and inspect all saved API tokens |
+| `/token <number>` | Switch active API token |
+| `/stats` | View token usage quota, remaining balance, and limits |
+| `/web` | Check or start background DSH Web service (:3080) |
+| `/tabs` | List all open tabs and active states |
+| `/new [name]` | Create a new session tab |
+| `/tab [1-9]` | Switch to a specific session tab |
+| `/close [idx]` | Close a session tab |
+| `/rename <name>` | Rename the active session tab |
+| `/clear` | Clear conversation history for active tab |
+| `/exit` | Exit application |
 
 ---
 
-## 🚀 Установка и запуск
+## 🚀 Installation & Quick Start
 
-### Вариант 1. Скачать готовый бинарник (Windows / Linux / macOS)
-Скачайте бинарник для вашей ОС из раздела [Releases](releases):
+### Method 1: Download Pre-built Binary (Recommended)
+Download the standalone executable for your operating system from [Releases](https://github.com/fffwwwoo/FROST-CLI/releases):
 - **Windows**: `tokify.exe`
 - **Linux**: `tokify-linux-x64` (`chmod +x tokify-linux-x64 && ./tokify-linux-x64`)
 - **macOS**: `tokify-macos-x64` (`chmod +x tokify-macos-x64 && ./tokify-macos-x64`)
 
-### Вариант 2. Запуск из исходного кода (Любая ОС)
+### Method 2: Run from Source
 ```bash
-# Клонировать репозиторий
-git clone https://github.com/fffwwwooo/FROST-CLI.git tokify
+# Clone repository
+git clone https://github.com/fffwwwoo/FROST-CLI.git tokify
 cd tokify
 
-# Установить зависимости
+# Install dependencies
 npm install
 
-# Запуск чата напрямую
+# Start interactive chat
 node app.js chat
 
-# Либо связать глобально:
+# Or link globally:
 npm link
 tokify chat
 ```
 
-### Сборка автономного исполняемого файла на вашей машине:
+### Build Standalone Executable on your machine:
 ```bash
 node build.js
 ```
-Скрипт автоматически определит текущую ОС (Windows / Linux / macOS), соберёт проект через `esbuild`, сформирует блоб Node.js SEA и создаст готовый бинарник в каталоге `dist/`.
+The build script automatically detects the host OS (Windows / Linux / macOS), bundles the project with `esbuild`, generates the Node.js SEA blob, and produces an executable binary in the `dist/` directory.
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-Распространяется под лицензией [MIT](LICENSE).
+Distributed under the [MIT](LICENSE) License.
 
 <div align="center">
   <sub>crafted with precision • <b>tokify.</b> • 2026</sub>

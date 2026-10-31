@@ -130,14 +130,157 @@ const THEMES = {
 
 let currentThemeId = 'cyber';
 let currentAccessMode = 'turbo'; // 'turbo' | 'review'
+let currentLanguage = 'en'; // 'en' (default) | 'ru'
 
 const SETTINGS_FILE = path.join(os.homedir(), '.tokify-settings.json');
 
 function saveUserSettings() {
   try {
-    const data = { theme: currentThemeId, accessMode: currentAccessMode };
+    const data = { theme: currentThemeId, accessMode: currentAccessMode, language: currentLanguage };
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch {}
+}
+
+const I18N = {
+  en: {
+    langName: 'English',
+    newSession: 'New session',
+    homeSubtext: (v) => `/help for commands · /lang for language · v${v}`,
+    fullPcAccess: ' Full PC Access   ',
+    langModalTitle: 'Language / Interface',
+    accessModalTitle: 'Access Mode',
+    themeModalTitle: 'Theme & UI Colors',
+    historyEmpty: 'ℹ️ **Session History**: Current session has no messages yet. Type a prompt or task to start.',
+    historyTitle: (t) => `### 📜 Session History — "${t}"`,
+    tokensTitle: 'Saved API Tokens',
+    tokensSwitchHint: 'To switch token: `/token <number>`',
+    tokenSwitched: (n, k) => `✓ Active API token switched to **${n}** (${k})`,
+    tokenInvalid: '✗ Invalid token index. Type `/tokens` to view list.',
+    statsTitle: (k) => `API Key Statistics: \`${k}\``,
+    statsTokensQuota: 'Token Quota',
+    statsUnlimited: 'Unlimited',
+    statsRemaining: 'remaining',
+    statsTotalReq: 'Total requests',
+    statsTokensUsed: 'Tokens used',
+    statsFailed: '✗ Failed to load token statistics from gateway.',
+    webAlive: (u) => `● **DSH Web Service**: Active in background on [${u}](${u})`,
+    webStarted: (u) => `● **DSH Web Service**: Started in background on [${u}](${u})`,
+    tabsTitle: (n) => `Open Sessions (${n})`,
+    unknownCmd: (c) => `Unknown command: \`${c}\`. Type \`/help\` to view all available commands.`,
+    helpContent: `### 📖 tokify. 2.0 — Quick Help & Shortcuts
+
+| Shortcut | Description |
+| :--- | :--- |
+| **Shift+Tab** *(or F2)* | Cycle AI model |
+| **Tab** | Cycle reasoning power: **High (16K)** / **Medium (8K)** / **Fast (4K)** |
+| **Ctrl+P** | Open OpenCode Command Palette |
+| **Ctrl+A** *(or F4)* | Access Mode: **Request Review** ↔ **Turbo** |
+| **Ctrl+K** *(or F3)* | UI Themes & Colors (6 color schemes) |
+| **Ctrl+V** | Paste text or code from system clipboard |
+| **Ctrl+T** *(or \`+\` on empty line)* | Open a new session tab (up to 9 tabs) |
+| **Ctrl+W** | Close current tab |
+| **Ctrl+Right / Left** | Switch between session tabs |
+| **Alt+1..9** | Jump directly to tab 1 through 9 |
+| **Mouse Wheel / PgUp / PgDn** | Scroll chat history up/down |
+| **Ctrl+Up / Down** | Smooth chat scrolling |
+| **Esc** | Return to bottom / Cancel scroll |
+
+#### 💬 Chat Commands:
+- \`/lang [en|ru]\` — Switch language (English / Russian)
+- \`/mode [review|turbo]\` — Switch system access mode
+- \`/theme\` — Open theme selector
+- \`/history\` — Display session history digest
+- \`/tokens\` — List all saved API tokens
+- \`/token <number>\` — Switch active API token
+- \`/stats\` — Check token balance, limits and usage
+- \`/web\` — Inspect or start background DSH Web service (:3080)
+- \`/tabs\` — List all open tabs and active states
+- \`/rename <name>\` — Rename active tab
+- \`/clear\` — Clear current session chat history
+- \`/exit\` — Quit tokify.`,
+    systemInstruction: (osLabel, curPower) =>
+      `You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user's ${osLabel}. ` +
+      `Operating Power Level: ${curPower.label} (${curPower.instruction}). ` +
+      'You have real tools: run_command, write_file, read_file, list_directory. ' +
+      `When the user asks you to create, modify, inspect files, or perform ANY action on their ${osLabel} (e.g. creating files, running scripts/shell commands): ` +
+      'YOU MUST EXECUTE YOUR TOOLS TO ACTUALLY PERFORM THE ACTION ON THE COMPUTER. ' +
+      'NEVER refuse by saying you lack access. You HAVE full access through your tools. ' +
+      'If the user invokes /plan, generate an exhaustive architectural plan and design document, creating any needed files on disk. ' +
+      'Always respond clearly in English.'
+  },
+  ru: {
+    langName: 'Русский',
+    newSession: 'Новая сессия',
+    homeSubtext: (v) => `/help для команд · /lang для языка · v${v}`,
+    fullPcAccess: ' Полный доступ к ПК   ',
+    langModalTitle: 'Язык интерфейса / Language',
+    accessModalTitle: 'Режим доступа к системе',
+    themeModalTitle: 'Цветовая тема интерфейса',
+    historyEmpty: 'ℹ️ **История сессии**: В текущей сессии пока нет сообщений. Введите запрос или задачу, чтобы начать.',
+    historyTitle: (t) => `### 📜 История сессии — "${t}"`,
+    tokensTitle: 'Сохранённые API токены',
+    tokensSwitchHint: 'Для переключения: `/token <номер>`',
+    tokenSwitched: (n, k) => `✓ Активный API токен изменён на **${n}** (${k})`,
+    tokenInvalid: '✗ Неверный номер токена. Введите `/tokens` для списка.',
+    statsTitle: (k) => `Статистика ключа: \`${k}\``,
+    statsTokensQuota: 'Пакет токенов',
+    statsUnlimited: 'безлимит',
+    statsRemaining: 'остаток',
+    statsTotalReq: 'Всего запросов',
+    statsTokensUsed: 'Токенов использовано',
+    statsFailed: '✗ Не удалось получить статистику токена со шлюза.',
+    webAlive: (u) => `● **Служба DSH Web**: Активна в фоне на [${u}](${u})`,
+    webStarted: (u) => `● **Служба DSH Web**: Запущена в фоне на [${u}](${u})`,
+    tabsTitle: (n) => `Открытые сессии (${n})`,
+    unknownCmd: (c) => `Неизвестная команда: \`${c}\`. Введите \`/help\` для просмотра списка команд.`,
+    helpContent: `### 📖 Справка по командам и горячим клавишам tokify. 2.0
+
+| Горячая клавиша | Описание |
+| :--- | :--- |
+| **Shift+Tab** *(или F2)* | Переключение AI-модели |
+| **Tab** | Смена мощности мышления: **High (16K)** / **Medium (8K)** / **Fast (4K)** |
+| **Ctrl+P** | Командная палитра (OpenCode Command Palette) |
+| **Ctrl+A** *(или F4)* | Режим доступа: **Request Review** ↔ **Turbo** |
+| **Ctrl+K** *(или F3)* | Цветовая тема оформления (6 палитр) |
+| **Ctrl+V** | Вставка текста / кода из системного буфера обмена |
+| **Ctrl+T** *(или \`+\` на пустой строке)* | Создать новую вкладку сессии (до 9 вкладок) |
+| **Ctrl+W** | Закрыть текущую вкладку |
+| **Ctrl+Right / Left** | Переключение между вкладками |
+| **Alt+1..9** | Быстрый переход к вкладке 1-9 |
+| **Колёсико мыши / PgUp / PgDn** | Прокрутка истории чата |
+| **Ctrl+Up / Down** | Плавный скролл истории вверх/вниз |
+| **Esc** | Возврат в самый низ / сброс скролла |
+
+#### 💬 Команды чата:
+- \`/lang [en|ru]\` — Смена языка интерфейса (English / Русский)
+- \`/mode [review|turbo]\` — Смена режима доступа к системе
+- \`/theme\` — Выбор цветовой темы
+- \`/history\` — Показать историю сообщений текущей сессии
+- \`/tokens\` — Список сохранённых токенов
+- \`/token <номер>\` — Переключить активный токен
+- \`/stats\` — Баланс токена и статистика использования
+- \`/web\` — Проверить или запустить фоновый DSH Web (:3080)
+- \`/tabs\` — Список открытых вкладок
+- \`/rename <имя>\` — Переименовать активную вкладку
+- \`/clear\` — Очистить историю текущей сессии
+- \`/exit\` — Завершить работу`,
+    systemInstruction: (osLabel, curPower) =>
+      `You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user's ${osLabel}. ` +
+      `Operating Power Level: ${curPower.label} (${curPower.instruction}). ` +
+      'You have real tools: run_command, write_file, read_file, list_directory. ' +
+      `When the user asks you to create, modify, inspect files, or perform ANY action on their ${osLabel} (e.g. creating files, running scripts/shell commands): ` +
+      'YOU MUST EXECUTE YOUR TOOLS TO ACTUALLY PERFORM THE ACTION ON THE COMPUTER. ' +
+      'NEVER refuse by saying you lack access. You HAVE full access through your tools. ' +
+      'If the user invokes /plan, generate an exhaustive architectural plan and design document, creating any needed files on disk. ' +
+      'Always respond clearly in Russian.'
+  }
+};
+
+function t(key, ...args) {
+  const dict = I18N[currentLanguage] || I18N.en;
+  const val = dict[key] ?? I18N.en[key];
+  if (typeof val === 'function') return val(...args);
+  return val ?? key;
 }
 
 const OC = {
@@ -193,6 +336,7 @@ function loadUserSettings() {
       const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
       if (data.theme && THEMES[data.theme]) applyTheme(data.theme, false);
       if (data.accessMode === 'review' || data.accessMode === 'turbo') currentAccessMode = data.accessMode;
+      if (data.language === 'en' || data.language === 'ru') currentLanguage = data.language;
     }
   } catch {}
 }
@@ -884,25 +1028,29 @@ async function callChatWithTools(messages, model, key, power = POWER_MODES[0]) {
 // ═══════════════════════════════════════════════════════════════════════
 
 // ── Command Palette Items ──
-const PALETTE_ITEMS = [
-  { type: 'header', text: 'Suggested' },
-  { id: 'switch_session', title: 'Switch session',      key: 'ctrl+x l' },
-  { id: 'new_session',    title: 'New session',         key: 'ctrl+t / +' },
-  { id: 'switch_access',  title: 'Access Mode (Review / Turbo)', key: 'ctrl+a' },
-  { id: 'switch_theme',   title: 'Theme & UI Colors',   key: '' },
-  { id: 'switch_model',   title: 'Switch model',        key: 'shift+tab' },
-  { id: 'switch_power',   title: 'Thinking power',      key: 'tab' },
-  { id: 'token_manager',  title: 'Token manager',       key: 'ctrl+x t' },
-  { type: 'header', text: 'Prompt & System' },
-  { id: 'view_history',   title: 'View full history',   key: '/history' },
-  { id: 'stats',          title: 'Token stats / balance', key: '/stats' },
-  { id: 'clear_chat',     title: 'Clear history',       key: '/clear' },
-  { id: 'help',           title: 'Show help',           key: '/help' },
-  { id: 'exit',           title: 'Exit tokify.',        key: '/exit' },
-];
+function getPaletteItems() {
+  const isEn = (currentLanguage === 'en');
+  return [
+    { type: 'header', text: isEn ? 'Suggested' : 'Рекомендуемые' },
+    { id: 'switch_session',  title: isEn ? 'Switch session' : 'Переключить сессию',              key: '← / →' },
+    { id: 'new_session',     title: isEn ? 'New session' : 'Новая сессия',                        key: 'ctrl+t / +' },
+    { id: 'switch_access',   title: isEn ? 'Access Mode (Review / Turbo)' : 'Режим доступа (Review / Turbo)', key: 'ctrl+a' },
+    { id: 'switch_theme',    title: isEn ? 'Theme & UI Colors' : 'Цветовая тема оформления',      key: 'ctrl+k / f3' },
+    { id: 'switch_language', title: isEn ? 'Language / Язык (EN / RU)' : 'Язык интерфейса / Language', key: '/lang' },
+    { id: 'switch_model',    title: isEn ? 'Switch model' : 'Сменить AI-модель',                  key: 'shift+tab' },
+    { id: 'switch_power',    title: isEn ? 'Thinking power (High/Med/Fast)' : 'Уровень мышления',  key: 'tab' },
+    { id: 'token_manager',   title: isEn ? 'Token manager' : 'Управление токенами',               key: '/tokens' },
+    { type: 'header', text: isEn ? 'Prompt & System' : 'Система и чат' },
+    { id: 'view_history',    title: isEn ? 'Session history digest' : 'История сообщений сессии', key: '/history' },
+    { id: 'stats',           title: isEn ? 'Token stats / balance' : 'Статистика токена и баланс', key: '/stats' },
+    { id: 'clear_chat',      title: isEn ? 'Clear history' : 'Очистить историю сессии',           key: '/clear' },
+    { id: 'help',            title: isEn ? 'Show help' : 'Справка по командам',                   key: '/help' },
+    { id: 'exit',            title: isEn ? 'Exit tokify.' : 'Выход из tokify.',                   key: '/exit' },
+  ];
+}
 
 function getFilteredPaletteItems(query) {
-  return PALETTE_ITEMS.filter(it => {
+  return getPaletteItems().filter(it => {
     if (it.type === 'header') return true;
     if (!query) return true;
     return it.title.toLowerCase().includes(query.toLowerCase());
@@ -910,7 +1058,7 @@ function getFilteredPaletteItems(query) {
 }
 
 function getSelectablePaletteItems(query) {
-  return PALETTE_ITEMS.filter(it => {
+  return getPaletteItems().filter(it => {
     if (it.type === 'header') return false;
     if (!query) return true;
     return it.title.toLowerCase().includes(query.toLowerCase());
@@ -1188,8 +1336,8 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   for (const l of logo) console.log(logoPad + l);
 
   // 3. Subtext
-  const subText = `${OC.peach}/help${OC.textDim} for commands · v${VERSION}${OC.reset}`;
-  const subRawLen = 32;
+  const subText = `${OC.peach}/help${OC.textDim} for commands · ${OC.peach}/lang${OC.textDim} language · v${VERSION}${OC.reset}`;
+  const subRawLen = 38;
   const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRawLen) / 2)));
   console.log('\n' + subPad + subText + '\n');
 
@@ -1199,7 +1347,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));
 
   console.log(cardPad + OC.bgCard + ' ' + BAR + ' ' +
-    OC.accentBlue + 'Autonomous' + OC.textMuted + ' · ' +
+    OC.accentBlue + (currentLanguage === 'en' ? 'Autonomous' : 'Автономный') + OC.textMuted + ' · ' +
     OC.textWhite + currentModel + ' ' +
     OC.peach + currentPower + OC.bgCard + l2pad + ' ' + OC.reset);
 
@@ -1212,7 +1360,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   console.log('');
 
   // 6. Footer (solid ● bullets)
-  const footLeft = ' ' + OC.green + '●' + OC.textMuted + ' Full PC Access   ' +
+  const footLeft = ' ' + OC.green + '●' + OC.textMuted + t('fullPcAccess') +
                    OC.accentBlue + '●' + OC.textMuted + ' 1 MCP';
   const footRight = OC.textDim + VERSION + ' ';
   const footSpace = ' '.repeat(Math.max(2, cols - 32 - VERSION.length - 2));
@@ -1323,9 +1471,13 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
 
   let scrollIndicator = '';
   if (scrollOffset > 0) {
-    scrollIndicator = `${OC.peach}▲ [Скролл +${scrollOffset} из ${maxScroll} · PgUp/PgDn/Колёсико · Esc вниз]${OC.reset}  `;
+    scrollIndicator = currentLanguage === 'en'
+      ? `${OC.peach}▲ [Scroll +${scrollOffset} of ${maxScroll} · PgUp/PgDn/Wheel · Esc to bottom]${OC.reset}  `
+      : `${OC.peach}▲ [Скролл +${scrollOffset} из ${maxScroll} · PgUp/PgDn/Колёсико · Esc вниз]${OC.reset}  `;
   } else if (maxScroll > 0) {
-    scrollIndicator = `${OC.textDim}↑ [PgUp/Колёсико — скролл вверх]${OC.reset}  `;
+    scrollIndicator = currentLanguage === 'en'
+      ? `${OC.textDim}↑ [PgUp/Wheel — scroll up]${OC.reset}  `
+      : `${OC.textDim}↑ [PgUp/Колёсико — скролл вверх]${OC.reset}  `;
   }
 
   const rightInfo = scrollIndicator + OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.reset +
@@ -1349,15 +1501,25 @@ function renderAccessModeModal(selectedIndex) {
   for (let i = 0; i < topSpace; i++) console.log('');
 
   // Header
-  const titleLeft = '  ' + OC.bold + OC.textWhite + 'Access Mode' + OC.reset;
+  const titleLeft = '  ' + OC.bold + OC.textWhite + t('accessModalTitle') + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
-  const headerPad = ' '.repeat(Math.max(1, modalW - 17));
+  const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
   console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
   console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
 
   const options = [
-    { id: 'review', title: 'Request Review', desc: 'Every command requires approval.', icon: '🛡️' },
-    { id: 'turbo',  title: 'Turbo',          desc: 'Run all commands without restrictions.', icon: '🛡️' },
+    {
+      id: 'review',
+      title: currentLanguage === 'en' ? 'Request Review' : 'Запрос подтверждения',
+      desc: currentLanguage === 'en' ? 'Every command requires approval.' : 'Каждая команда требует подтверждения.',
+      icon: '🛡️'
+    },
+    {
+      id: 'turbo',
+      title: 'Turbo',
+      desc: currentLanguage === 'en' ? 'Run all commands without restrictions.' : 'Выполнение всех команд без подтверждений.',
+      icon: '⚡'
+    },
   ];
 
   for (let i = 0; i < options.length; i++) {
@@ -1395,9 +1557,9 @@ function renderThemeModal(selectedIndex) {
   for (let i = 0; i < topSpace; i++) console.log('');
 
   // Header
-  const titleLeft = '  ' + OC.bold + OC.textWhite + 'Theme & UI Colors' + OC.reset;
+  const titleLeft = '  ' + OC.bold + OC.textWhite + t('themeModalTitle') + OC.reset;
   const escRight = OC.textDim + 'esc' + OC.reset + '  ';
-  const headerPad = ' '.repeat(Math.max(1, modalW - 23));
+  const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
   console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
   console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
 
@@ -1420,6 +1582,52 @@ function renderThemeModal(selectedIndex) {
     }
   }
   console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+}
+
+// ── Render: Language Selection Modal ──
+function renderLanguageModal(selectedIndex) {
+  const cols = process.stdout.columns || 90;
+  const rows = process.stdout.rows || 30;
+  const modalW = Math.min(62, cols - 8);
+  const leftPad = ' '.repeat(Math.max(2, Math.floor((cols - modalW) / 2)));
+
+  console.clear();
+
+  const topSpace = Math.max(2, Math.floor(rows * 0.18));
+  for (let i = 0; i < topSpace; i++) console.log('');
+
+  // Header
+  const titleLeft = '  ' + OC.bold + OC.textWhite + t('langModalTitle') + OC.reset;
+  const escRight = OC.textDim + 'esc' + OC.reset + '  ';
+  const headerPad = ' '.repeat(Math.max(1, modalW - stripAnsi(titleLeft).length - 5));
+  console.log(leftPad + OC.bgModal + titleLeft + OC.bgModal + headerPad + escRight + OC.reset);
+  console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+
+  const options = [
+    { id: 'en', title: 'English (Default)', desc: 'Full UI and AI responses in English.', flag: '🇬🇧' },
+    { id: 'ru', title: 'Русский язык',      desc: 'Интерфейс и ответы ИИ на русском языке.', flag: '🇷🇺' },
+  ];
+
+  for (let i = 0; i < options.length; i++) {
+    const opt = options[i];
+    const isSel = (i === selectedIndex);
+    const isActive = (opt.id === currentLanguage);
+    const checkmark = isActive ? OC.green + '✓' + OC.reset : ' ';
+
+    const titleLine = `  ${opt.flag}  ${opt.title}`;
+    const descLine  = `      ${opt.desc}`;
+    const tPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(titleLine).length - 4));
+    const dPad = ' '.repeat(Math.max(1, modalW - 2 - stripAnsi(descLine).length));
+
+    if (isSel) {
+      console.log(leftPad + OC.bgSelected + OC.fgBlack + OC.bold + titleLine + tPad + checkmark + ' ' + OC.reset);
+      console.log(leftPad + OC.bgSelected + OC.fgBlack + descLine + dPad + OC.reset);
+    } else {
+      console.log(leftPad + OC.bgModal + OC.textWhite + titleLine + OC.bgModal + tPad + checkmark + ' ' + OC.reset);
+      console.log(leftPad + OC.bgModal + OC.textDim + descLine + OC.bgModal + dPad + OC.reset);
+    }
+    console.log(leftPad + OC.bgModal + ' '.repeat(modalW) + OC.reset);
+  }
 }
 
 // ── Render: Command Palette Modal ──
@@ -1585,7 +1793,7 @@ async function runChat(options = {}) {
 
   // ── Multi-Chat / Tabs ──
   let tabs = [{
-    id: 1, title: 'New session',
+    id: 1, title: currentLanguage === 'en' ? 'New session' : 'Новая сессия',
     model: currentModel, powerIdx: currentPowerIdx, history: [],
     scrollOffset: 0,
   }];
@@ -1602,6 +1810,9 @@ async function runChat(options = {}) {
 
   let isThemeModalOpen = false;
   let themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
+
+  let isLanguageModalOpen = false;
+  let languageModalIndex = currentLanguage === 'en' ? 0 : 1;
 
   // ── Prompt String (OpenCode style: card with cyan bar) ──
   const getPromptString = () => {
@@ -1736,7 +1947,7 @@ async function runChat(options = {}) {
         const isPress = match[4] === 'M';
 
         if (isPress && button === 0) {
-          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen && !isLanguageModalOpen) {
             if (y === 1 || y === 2) {
               if (x >= plusZone.startX && x <= plusZone.endX) {
                 createNewTab();
@@ -1752,7 +1963,7 @@ async function runChat(options = {}) {
           }
         } else if (button === 64) {
           // Mouse Wheel UP → Scroll up into chat history
-          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen && !isLanguageModalOpen) {
             scrollChat(3);
           } else if (isPaletteOpen) {
             paletteIndex = Math.max(0, paletteIndex - 1);
@@ -1760,13 +1971,16 @@ async function runChat(options = {}) {
           } else if (isAccessModalOpen) {
             accessModalIndex = (accessModalIndex - 1 + 2) % 2;
             renderAccessModeModal(accessModalIndex);
+          } else if (isLanguageModalOpen) {
+            languageModalIndex = (languageModalIndex - 1 + 2) % 2;
+            renderLanguageModal(languageModalIndex);
           } else if (isThemeModalOpen) {
             themeModalIndex = (themeModalIndex - 1 + Object.keys(THEMES).length) % Object.keys(THEMES).length;
             renderThemeModal(themeModalIndex);
           }
         } else if (button === 65) {
           // Mouse Wheel DOWN → Scroll down towards latest messages
-          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen && !isLanguageModalOpen) {
             scrollChat(-3);
           } else if (isPaletteOpen) {
             const count = getFilteredPaletteItems(paletteQuery).length;
@@ -1775,6 +1989,9 @@ async function runChat(options = {}) {
           } else if (isAccessModalOpen) {
             accessModalIndex = (accessModalIndex + 1) % 2;
             renderAccessModeModal(accessModalIndex);
+          } else if (isLanguageModalOpen) {
+            languageModalIndex = (languageModalIndex + 1) % 2;
+            renderLanguageModal(languageModalIndex);
           } else if (isThemeModalOpen) {
             themeModalIndex = (themeModalIndex + 1) % Object.keys(THEMES).length;
             renderThemeModal(themeModalIndex);
@@ -1832,9 +2049,27 @@ async function runChat(options = {}) {
         themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
         renderThemeModal(themeModalIndex);
         return;
+      case 'switch_language':
+        isLanguageModalOpen = true;
+        languageModalIndex = currentLanguage === 'en' ? 0 : 1;
+        renderLanguageModal(languageModalIndex);
+        return;
       case 'view_history': {
         const curTab = getActiveTab();
-        curTab.scrollOffset = curTab.maxScroll || 9999;
+        if (!curTab.history || curTab.history.length === 0) {
+          curTab.title = currentLanguage === 'en' ? 'History' : 'История';
+          curTab.history.push({ role: 'assistant', content: t('historyEmpty') });
+        } else {
+          let md = `${t('historyTitle', curTab.title)}\n\n`;
+          let turnIdx = 1;
+          for (const m of curTab.history) {
+            const roleIcon = m.role === 'user' ? '👤 **User**' : '🤖 **tokify.**';
+            const preview = (m.content || '').replace(/\r?\n/g, ' ').slice(0, 140);
+            const dots = (m.content || '').length > 140 ? '…' : '';
+            md += `${turnIdx++}. ${roleIcon}: ${preview}${dots}\n`;
+          }
+          curTab.history.push({ role: 'assistant', content: md });
+        }
         refreshCurrentView();
         safePrompt();
         return;
@@ -1845,87 +2080,67 @@ async function runChat(options = {}) {
       case 'switch_power':
         cyclePower();
         break;
-      case 'token_manager':
-        refreshCurrentView();
-        // Trigger /tokens logic inline
+      case 'token_manager': {
         (async () => {
           const store = await autoDiscoverTokens();
-          console.log(`\n${C.bold}${C.snow}Сохранённые токены:${C.reset}`);
+          let md = `### ${t('tokensTitle')} (${store.tokens.length})\n\n`;
           for (let i = 0; i < store.tokens.length; i++) {
-            const t = store.tokens[i];
-            const isCur = (t.id === currentToken.id);
-            const mark = isCur ? `${C.green}● ${C.bold}` : `  `;
-            console.log(`${mark}[${i + 1}] ${t.name}${C.reset} ${C.dimText}(${maskKey(t.key)})${C.reset}`);
+            const tok = store.tokens[i];
+            const isCur = (tok.id === currentToken.id);
+            const activeBadge = isCur ? '🟢 **[Active]**' : '⚪';
+            md += `${activeBadge} **[${i + 1}]** \`${tok.name}\` · \`${maskKey(tok.key)}\`\n`;
           }
-          console.log(`\n${C.dimText}Для переключения: /token <номер>${C.reset}\n`);
+          md += `\n_${t('tokensSwitchHint')}_`;
+          const curTab = getActiveTab();
+          if (curTab.history.length === 0) curTab.title = 'Tokens';
+          curTab.history.push({ role: 'assistant', content: md });
+          refreshCurrentView();
           safePrompt();
         })();
         return;
-      case 'stats':
-        refreshCurrentView();
+      }
+      case 'stats': {
         (async () => {
-          await animateToolStep('Querying Tokify Gateway', currentToken.name, 250);
           const info = await verifyKey(currentToken.key).catch(() => null);
+          const curTab = getActiveTab();
+          if (curTab.history.length === 0) curTab.title = 'Stats';
           if (info) {
             const Q = info.quota || {};
             const U = info.usage || {};
-            const L = info.limits || {};
-            console.log(`\n${C.bold}${C.snow}Статистика ключа:${C.reset} ${C.ice}${info.prefix || maskKey(currentToken.key)}${C.reset}`);
+            let md = `### ${t('statsTitle', info.prefix || maskKey(currentToken.key))}\n\n`;
             if (Q.total != null) {
               const used = Q.used || 0;
               const total = Q.total || 1;
               const pct = Math.min(100, (used / total) * 100).toFixed(1);
-              const color = pct >= 90 ? C.red : pct >= 70 ? C.yellow : C.green;
-              const width = 24;
-              const filled = Math.round((used / total) * width);
-              const bar = color + '█'.repeat(filled) + C.darkLine + '·'.repeat(width - filled) + C.reset;
-              console.log(`  Пакет токенов:   [${bar}] ${color}${pct}%${C.reset} · остаток ${C.bold}${fmtTok(Q.remaining ?? 0)}${C.reset} из ${fmtTok(total)}`);
-            } else {
-              console.log(`  Пакет токенов:   ${C.dimText}безлимит${C.reset}`);
+              md += `- **${t('statsTokensQuota')}:** \`${pct}%\` (${fmtTok(Q.remaining ?? 0)} ${t('statsRemaining')} / ${fmtTok(total)})\n`;
             }
-            if (L.rpm) console.log(`  RPM лимит:       ${C.dimText}${L.rpm} зап/мин${C.reset}`);
-            if (L.rpd) console.log(`  RPD сегодня:     ${C.dimText}${U.today_requests || 0}/${L.rpd}${C.reset}`);
-            console.log(`  Всего запросов:  ${C.dimText}${(U.total_requests || 0).toLocaleString()} · токенов: ${fmtTok(U.total_tokens || 0)}${C.reset}\n`);
+            md += `- **${t('statsTotalReq')}:** \`${(U.total_requests || 0).toLocaleString()}\`\n`;
+            md += `- **${t('statsTokensUsed')}:** \`${fmtTok(U.total_tokens || 0)}\`\n`;
+            curTab.history.push({ role: 'assistant', content: md });
           } else {
-            console.log(`${C.red}✗ Не удалось загрузить статистику${C.reset}\n`);
+            curTab.history.push({ role: 'assistant', content: t('statsFailed') });
           }
+          refreshCurrentView();
           safePrompt();
         })();
         return;
+      }
       case 'clear_chat':
         getActiveTab().history = [];
-        getActiveTab().title = 'New session';
+        getActiveTab().title = t('newSession');
         refreshCurrentView();
         break;
-      case 'help':
+      case 'help': {
+        const curTab = getActiveTab();
+        if (curTab.history.length === 0) curTab.title = currentLanguage === 'en' ? 'Help' : 'Справка';
+        curTab.history.push({ role: 'assistant', content: t('helpContent') });
         refreshCurrentView();
-        console.log('');
-        console.log(`${OC.bold}${OC.textWhite}tokify. Commands:${OC.reset}`);
-        console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Cycle model${C.reset}`);
-        console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Cycle power (High/Medium/Fast)${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Access mode (Request Review / Turbo)${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Theme & UI colors${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Paste from system clipboard${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab (or click +)${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Close current tab${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Switch between tabs${C.reset}`);
-        console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Jump to tab 1..9${C.reset}`);
-        console.log(`  ${C.cyan}/model [name]${C.reset}   ${C.dimText}— Switch model${C.reset}`);
-        console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Switch power level${C.reset}`);
-        console.log(`  ${C.cyan}/access${C.reset}         ${C.dimText}— Toggle Access mode (Turbo/Review)${C.reset}`);
-        console.log(`  ${C.cyan}/theme${C.reset}          ${C.dimText}— Change color theme${C.reset}`);
-        console.log(`  ${C.cyan}/history${C.reset}        ${C.dimText}— View full session history${C.reset}`);
-        console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Token usage & balance${C.reset}`);
-        console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— List saved tokens${C.reset}`);
-        console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Clear chat history${C.reset}`);
-        console.log(`  ${C.cyan}/exit${C.reset}           ${C.dimText}— Exit program${C.reset}`);
-        console.log('');
         safePrompt();
-        break;
+        return;
+      }
       case 'exit':
         cleanupMouse();
-        console.log(`\n${C.dimText}До встречи! 👋${C.reset}\n`);
+        console.log(`\n${OC.textDim}${currentLanguage === 'en' ? 'Goodbye! 👋' : 'До встречи! 👋'}${OC.reset}\n`);
         process.exit(0);
         break;
       default:
@@ -1937,6 +2152,33 @@ async function runChat(options = {}) {
   // ── Keyboard Interceptor (includes Command Palette modal handling) ──
   const origTTYWrite = rl._ttyWrite.bind(rl);
   rl._ttyWrite = function(s, key) {
+    // ── Language Modal ──
+    if (isLanguageModalOpen) {
+      if (key && (key.name === 'escape' || (key.ctrl && key.name === 'c'))) {
+        isLanguageModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      if (key && (key.name === 'up' || key.name === 'k')) {
+        languageModalIndex = (languageModalIndex - 1 + 2) % 2;
+        renderLanguageModal(languageModalIndex);
+        return;
+      }
+      if (key && (key.name === 'down' || key.name === 'j')) {
+        languageModalIndex = (languageModalIndex + 1) % 2;
+        renderLanguageModal(languageModalIndex);
+        return;
+      }
+      if (key && (key.name === 'return' || key.name === 'space')) {
+        currentLanguage = languageModalIndex === 0 ? 'en' : 'ru';
+        saveUserSettings();
+        isLanguageModalOpen = false;
+        refreshCurrentView();
+        return;
+      }
+      return;
+    }
+
     // ── Access Mode Modal ──
     if (isAccessModalOpen) {
       if (key && (key.name === 'escape' || (key.ctrl && key.name === 'c'))) {
@@ -2203,38 +2445,40 @@ async function runChat(options = {}) {
 
           switch (cmd.toLowerCase()) {
             case '/help':
-              console.log('');
-              console.log(`${OC.bold}${OC.textWhite}Доступные команды tokify.:${OC.reset}`);
-              console.log(`  ${C.cyan}Shift+Tab${C.reset}       ${C.dimText}— Переключение модели (или F2 / /model)${C.reset}`);
-              console.log(`  ${C.cyan}Tab${C.reset}             ${C.dimText}— Переключение мощности (High / Med / Fast)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Командная палитра (OpenCode Command Palette)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Режим доступа (Request Review / Turbo)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Смена темы интерфейса (Цвета / Crimson / Cyber)${C.reset}`);
-              console.log(`  ${C.cyan}PgUp / PgDn${C.reset}     ${C.dimText}— Прокрутка длинных ответов и истории (или колёсико мыши)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+Up / Down${C.reset}  ${C.dimText}— Плавный скролл чата вверх/вниз (Esc — возврат вниз)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Вставка текста из буфера обмена${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую сессию (или /new / +)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Закрыть текущую сессию (или /close)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Переключение между сессиями (или /tab)${C.reset}`);
-              console.log(`  ${C.cyan}Alt+1..9${C.reset}        ${C.dimText}— Мгновенный переход на сессию 1..9${C.reset}`);
-              console.log(`  ${C.cyan}/access${C.reset}         ${C.dimText}— Настройка режима доступа (Review / Turbo)${C.reset}`);
-              console.log(`  ${C.cyan}/theme${C.reset}          ${C.dimText}— Выбор цветовой темы${C.reset}`);
-              console.log(`  ${C.cyan}/history${C.reset}        ${C.dimText}— Показать полную историю сессии${C.reset}`);
-              console.log(`  ${C.cyan}/tab [1-9]${C.reset}      ${C.dimText}— Переключение на сессию по номеру${C.reset}`);
-              console.log(`  ${C.cyan}/new [имя]${C.reset}      ${C.dimText}— Создать новую сессию${C.reset}`);
-              console.log(`  ${C.cyan}/close [№]${C.reset}      ${C.dimText}— Закрыть сессию${C.reset}`);
-              console.log(`  ${C.cyan}/power [1-3]${C.reset}    ${C.dimText}— Выбор мощности (1: High, 2: Medium, 3: Fast)${C.reset}`);
-              console.log(`  ${C.cyan}/model [имя]${C.reset}    ${C.dimText}— Выбор модели${C.reset}`);
-              console.log(`  ${C.cyan}/tokens${C.reset}         ${C.dimText}— Список токенов${C.reset}`);
-              console.log(`  ${C.cyan}/token <№>${C.reset}     ${C.dimText}— Переключить токен${C.reset}`);
-              console.log(`  ${C.cyan}/stats${C.reset}          ${C.dimText}— Статистика и баланс токена${C.reset}`);
-              console.log(`  ${C.cyan}/web${C.reset}            ${C.dimText}— Проверить DSH Web (http://127.0.0.1:3080)${C.reset}`);
-              console.log(`  ${C.cyan}/clear${C.reset}          ${C.dimText}— Очистить историю сессии и вернуть стартовый экран${C.reset}`);
-              console.log(`  ${C.cyan}/commands${C.reset}       ${C.dimText}— Открыть палитру команд (Ctrl+P)${C.reset}`);
-              console.log(`  ${C.cyan}/exit${C.reset}           ${C.dimText}— Выход${C.reset}`);
-              console.log('');
+            case '/?': {
+              const curTab = getActiveTab();
+              if (curTab.history.length === 0) {
+                curTab.title = currentLanguage === 'en' ? 'Help' : 'Справка';
+              }
+              curTab.history.push({
+                role: 'assistant',
+                content: t('helpContent')
+              });
+              refreshCurrentView();
               safePrompt();
               return;
+            }
+
+            case '/lang':
+            case '/language': {
+              const cleanArg = argStr.toLowerCase();
+              if (cleanArg === 'en' || cleanArg === 'english') {
+                currentLanguage = 'en';
+                saveUserSettings();
+                refreshCurrentView();
+                return;
+              }
+              if (cleanArg === 'ru' || cleanArg === 'russian' || cleanArg === 'русский') {
+                currentLanguage = 'ru';
+                saveUserSettings();
+                refreshCurrentView();
+                return;
+              }
+              isLanguageModalOpen = true;
+              languageModalIndex = currentLanguage === 'en' ? 0 : 1;
+              renderLanguageModal(languageModalIndex);
+              return;
+            }
 
             case '/commands':
             case '/menu':
@@ -2244,15 +2488,51 @@ async function runChat(options = {}) {
               renderCommandPalette('', 0, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
               return;
 
-            case '/tabs': {
-              console.log(`\n${OC.bold}${OC.textWhite}Открытые сессии (${tabs.length}):${OC.reset}`);
-              for (let i = 0; i < tabs.length; i++) {
-                const t = tabs[i];
-                const isCur = (i === activeTabIdx);
-                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
-                console.log(`${mark}[${i + 1}] ${t.title}${OC.reset} · ${OC.barCyan}${t.model}${OC.reset} · ${OC.peach}[${POWER_MODES[t.powerIdx].label}]${OC.reset} · ${OC.textDim}${t.history.length} сообщ.${OC.reset}`);
+            case '/history': {
+              const curTab = getActiveTab();
+              if (!curTab.history || curTab.history.length === 0) {
+                curTab.title = currentLanguage === 'en' ? 'History' : 'История';
+                curTab.history.push({
+                  role: 'assistant',
+                  content: t('historyEmpty')
+                });
+                refreshCurrentView();
+                safePrompt();
+                return;
               }
-              console.log('');
+              let md = `${t('historyTitle', curTab.title)}\n\n`;
+              md += (currentLanguage === 'en'
+                ? `- **Model:** \`${curTab.model}\`\n- **Thinking Power:** \`${POWER_MODES[curTab.powerIdx].label}\`\n- **Messages:** \`${curTab.history.length}\` turns\n- **Access Mode:** \`${currentAccessMode.toUpperCase()}\`\n\n---`
+                : `- **Модель:** \`${curTab.model}\`\n- **Уровень мышления:** \`${POWER_MODES[curTab.powerIdx].label}\`\n- **Сообщений:** \`${curTab.history.length}\`\n- **Режим доступа:** \`${currentAccessMode.toUpperCase()}\`\n\n---`) + '\n\n';
+
+              let turnIdx = 1;
+              for (const m of curTab.history) {
+                const roleIcon = m.role === 'user' ? '👤 **User**' : '🤖 **tokify.**';
+                const preview = (m.content || '').replace(/\r?\n/g, ' ').slice(0, 140);
+                const dots = (m.content || '').length > 140 ? '…' : '';
+                md += `${turnIdx++}. ${roleIcon}: ${preview}${dots}\n`;
+              }
+              curTab.history.push({
+                role: 'assistant',
+                content: md
+              });
+              refreshCurrentView();
+              safePrompt();
+              return;
+            }
+
+            case '/tabs': {
+              let md = `### ${t('tabsTitle', tabs.length)}\n\n`;
+              for (let i = 0; i < tabs.length; i++) {
+                const tItem = tabs[i];
+                const isCur = (i === activeTabIdx);
+                const mark = isCur ? '🟢 **[Active]**' : '⚪';
+                md += `${mark} **[${i + 1}]** \`${tItem.title}\` · Model: \`${tItem.model}\` · Power: \`[${POWER_MODES[tItem.powerIdx].label}]\` · \`${tItem.history.length}\` messages\n`;
+              }
+              const curTab = getActiveTab();
+              if (curTab.history.length === 0) curTab.title = 'Tabs';
+              curTab.history.push({ role: 'assistant', content: md });
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2260,8 +2540,7 @@ async function runChat(options = {}) {
             case '/tab':
             case '/t': {
               if (!argStr) {
-                console.log(`${OC.peach}Укажите номер сессии: /tab <1-${tabs.length}> или next/prev${OC.reset}\n`);
-                safePrompt();
+                switchTab((activeTabIdx + 1) % tabs.length);
                 return;
               }
               const clean = argStr.toLowerCase();
@@ -2269,7 +2548,14 @@ async function runChat(options = {}) {
               if (clean === 'prev' || clean === 'p') { switchTab((activeTabIdx - 1 + tabs.length) % tabs.length); return; }
               const num = parseInt(clean, 10);
               if (!isNaN(num) && num >= 1 && num <= tabs.length) { switchTab(num - 1); return; }
-              console.log(`${OC.red}✗ Сессия #${argStr} не найдена. Всего сессий: ${tabs.length}${OC.reset}\n`);
+              const curTab = getActiveTab();
+              curTab.history.push({
+                role: 'assistant',
+                content: currentLanguage === 'en'
+                  ? `✗ Session #${argStr} not found. Total sessions: ${tabs.length}`
+                  : `✗ Сессия #${argStr} не найдена. Всего сессий: ${tabs.length}`
+              });
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2294,7 +2580,14 @@ async function runChat(options = {}) {
                 refreshCurrentView();
                 return;
               }
-              console.log(`${OC.peach}Укажите новое название: /rename <название>${OC.reset}\n`);
+              const curTab = getActiveTab();
+              curTab.history.push({
+                role: 'assistant',
+                content: currentLanguage === 'en'
+                  ? 'Please specify a title: `/rename <new title>`'
+                  : 'Укажите новое название: `/rename <название>`'
+              });
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2314,28 +2607,24 @@ async function runChat(options = {}) {
                   return;
                 }
               }
-              console.log(`\n${OC.bold}${OC.textWhite}Режимы мощности модели:${OC.reset}`);
-              for (let i = 0; i < POWER_MODES.length; i++) {
-                const p = POWER_MODES[i];
-                const isCur = (i === currentPowerIdx);
-                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
-                console.log(`${mark}[${i + 1}] ${OC.peach}${p.label}${OC.reset} — ${OC.textDim}${p.desc}${OC.reset}`);
-              }
-              console.log('');
-              safePrompt();
+              cyclePower();
               return;
             }
 
             case '/tokens': {
               const store = await autoDiscoverTokens();
-              console.log(`\n${OC.bold}${OC.textWhite}Сохранённые токены:${OC.reset}`);
+              let md = `### ${t('tokensTitle')} (${store.tokens.length})\n\n`;
               for (let i = 0; i < store.tokens.length; i++) {
-                const t = store.tokens[i];
-                const isCur = (t.id === currentToken.id);
-                const mark = isCur ? `${OC.green}● ${OC.bold}` : `  `;
-                console.log(`${mark}[${i + 1}] ${t.name}${OC.reset} ${OC.textDim}(${maskKey(t.key)})${OC.reset}`);
+                const tok = store.tokens[i];
+                const isCur = (tok.id === currentToken.id);
+                const activeBadge = isCur ? '🟢 **[Active]**' : '⚪';
+                md += `${activeBadge} **[${i + 1}]** \`${tok.name}\` · \`${maskKey(tok.key)}\`\n`;
               }
-              console.log(`\n${OC.textDim}Для переключения: /token <номер>${OC.reset}\n`);
+              md += `\n_${t('tokensSwitchHint')}_`;
+              const curTab = getActiveTab();
+              if (curTab.history.length === 0) curTab.title = 'Tokens';
+              curTab.history.push({ role: 'assistant', content: md });
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2343,16 +2632,23 @@ async function runChat(options = {}) {
             case '/token': {
               const store = await autoDiscoverTokens();
               const idx = parseInt(argStr, 10) - 1;
+              const curTab = getActiveTab();
               if (!isNaN(idx) && store.tokens[idx]) {
                 currentToken = store.tokens[idx];
                 store.activeId = currentToken.id;
                 saveTokens(store);
                 syncTokenToDsh(currentToken.key);
-                await animateToolStep('Active Token Updated', `[${currentToken.name}] (${maskKey(currentToken.key)})`, 200);
-                console.log('');
+                curTab.history.push({
+                  role: 'assistant',
+                  content: t('tokenSwitched', currentToken.name, maskKey(currentToken.key))
+                });
               } else {
-                console.log(`${OC.red}✗ Неверный номер. Введите /tokens для списка токенов.${OC.reset}\n`);
+                curTab.history.push({
+                  role: 'assistant',
+                  content: t('tokenInvalid')
+                });
               }
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2370,60 +2666,52 @@ async function runChat(options = {}) {
                   refreshCurrentView();
                   return;
                 }
-                console.log(`${OC.red}✗ Модель не найдена: ${argStr}${OC.reset}`);
-              } else {
-                console.log(`\n${OC.bold}${OC.textWhite}Доступные модели (${availableModels.length}):${OC.reset}`);
-                const curM = getActiveTab().model;
-                for (let i = 0; i < availableModels.length; i++) {
-                  const m = availableModels[i];
-                  const activeMark = (m === curM) ? `${OC.green}● ${OC.bold}` : `  ${OC.textDim}`;
-                  console.log(`${activeMark}[${i + 1}] ${m}${OC.reset}`);
-                }
-                console.log(`\n${OC.textDim}Сменить: Shift+Tab или /model <номер|имя>${OC.reset}\n`);
               }
-              safePrompt();
+              cycleModel();
               return;
             }
 
             case '/stats': {
-              await animateToolStep('Querying Tokify Gateway', currentToken.name, 250);
               const info = await verifyKey(currentToken.key).catch(() => null);
+              const curTab = getActiveTab();
+              if (curTab.history.length === 0) curTab.title = 'Stats';
               if (info) {
                 const Q = info.quota || {};
                 const U = info.usage || {};
                 const L = info.limits || {};
-                console.log(`\n${OC.bold}${OC.textWhite}Статистика ключа:${OC.reset} ${OC.barCyan}${info.prefix || maskKey(currentToken.key)}${OC.reset}`);
+                let md = `### ${t('statsTitle', info.prefix || maskKey(currentToken.key))}\n\n`;
                 if (Q.total != null) {
                   const used = Q.used || 0;
                   const total = Q.total || 1;
                   const pct = Math.min(100, (used / total) * 100).toFixed(1);
-                  const color = pct >= 90 ? OC.red : pct >= 70 ? OC.yellow : OC.green;
-                  const width = 24;
-                  const filled = Math.round((used / total) * width);
-                  const bar = color + '█'.repeat(filled) + OC.textDim + '·'.repeat(width - filled) + OC.reset;
-                  console.log(`  Пакет токенов:   [${bar}] ${color}${pct}%${OC.reset} · остаток ${OC.bold}${fmtTok(Q.remaining ?? 0)}${OC.reset} из ${fmtTok(total)}`);
+                  md += `- **${t('statsTokensQuota')}:** \`${pct}%\` (${fmtTok(Q.remaining ?? 0)} ${t('statsRemaining')} / ${fmtTok(total)})\n`;
                 } else {
-                  console.log(`  Пакет токенов:   ${OC.textDim}безлимит${OC.reset}`);
+                  md += `- **${t('statsTokensQuota')}:** \`${t('statsUnlimited')}\`\n`;
                 }
-                if (L.rpm) console.log(`  RPM лимит:       ${OC.textDim}${L.rpm} зап/мин${OC.reset}`);
-                if (L.rpd) console.log(`  RPD сегодня:     ${OC.textDim}${U.today_requests || 0}/${L.rpd}${OC.reset}`);
-                console.log(`  Всего запросов:  ${OC.textDim}${(U.total_requests || 0).toLocaleString()} · токенов: ${fmtTok(U.total_tokens || 0)}${OC.reset}\n`);
+                if (L.rpm) md += `- **RPM Limit:** \`${L.rpm} req/min\`\n`;
+                if (L.rpd) md += `- **RPD Today:** \`${U.today_requests || 0} / ${L.rpd}\`\n`;
+                md += `- **${t('statsTotalReq')}:** \`${(U.total_requests || 0).toLocaleString()}\`\n`;
+                md += `- **${t('statsTokensUsed')}:** \`${fmtTok(U.total_tokens || 0)}\`\n`;
+                curTab.history.push({ role: 'assistant', content: md });
               } else {
-                console.log(`${OC.red}✗ Не удалось загрузить статистику${OC.reset}\n`);
+                curTab.history.push({ role: 'assistant', content: t('statsFailed') });
               }
+              refreshCurrentView();
               safePrompt();
               return;
             }
 
             case '/web': {
               const alive = await isDshWebAlive();
+              const curTab = getActiveTab();
+              if (curTab.history.length === 0) curTab.title = 'DSH Web';
               if (alive) {
-                console.log(`\n${OC.green}● DSH Web активен в фоне:${OC.reset} ${OC.barCyan}http://127.0.0.1:3080/${OC.reset}\n`);
+                curTab.history.push({ role: 'assistant', content: t('webAlive', 'http://127.0.0.1:3080/') });
               } else {
-                await animateToolStep('Starting DSH Web in background', 'port 3080', 400);
                 await ensureDshWebSilent();
-                console.log(`\n${OC.green}● DSH Web запущен в фоне:${OC.reset} ${OC.barCyan}http://127.0.0.1:3080/${OC.reset}\n`);
+                curTab.history.push({ role: 'assistant', content: t('webStarted', 'http://127.0.0.1:3080/') });
               }
+              refreshCurrentView();
               safePrompt();
               return;
             }
@@ -2479,24 +2767,17 @@ async function runChat(options = {}) {
               return;
             }
 
-            case '/history': {
-              const curTab = getActiveTab();
-              curTab.scrollOffset = curTab.maxScroll || 9999;
-              refreshCurrentView();
-              safePrompt();
-              return;
-            }
-
             case '/clear':
               getActiveTab().history = [];
-              getActiveTab().title = 'New session';
+              getActiveTab().title = t('newSession');
               renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd);
               safePrompt();
               return;
 
             case '/exit':
             case '/quit':
-              console.log(`\n${OC.textDim}До встречи! 👋${OC.reset}\n`);
+              cleanupMouse();
+              console.log(`\n${OC.textDim}${currentLanguage === 'en' ? 'Goodbye! 👋' : 'До встречи! 👋'}${OC.reset}\n`);
               rl.close();
               resolve('exit');
               process.exit(0);
@@ -2505,10 +2786,16 @@ async function runChat(options = {}) {
             case '/plan':
               break;
 
-            default:
-              console.log(`${OC.red}Неизвестная команда. Введите /help для списка.${OC.reset}\n`);
+            default: {
+              const curTab = getActiveTab();
+              curTab.history.push({
+                role: 'assistant',
+                content: t('unknownCmd', cmd)
+              });
+              refreshCurrentView();
               safePrompt();
               return;
+            }
           }
         }
 
@@ -2526,7 +2813,7 @@ async function runChat(options = {}) {
         }
 
         const curTab = getActiveTab();
-        if (/^New session$|^Chat \d+$/i.test(curTab.title)) {
+        if (/^New session|^Новая сессия|^Chat \d+/i.test(curTab.title)) {
           const words = userPrompt.split(/\s+/).slice(0, 4).join(' ');
           if (words.length > 0) curTab.title = words.slice(0, 18);
         }
@@ -2534,15 +2821,7 @@ async function runChat(options = {}) {
         const curPower = POWER_MODES[curTab.powerIdx];
         const curMod = curTab.model;
         const osLabel = IS_WIN ? 'Windows PC' : (IS_MAC ? 'macOS system' : 'Linux system');
-        const systemInstruction =
-          `You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user's ${osLabel}. ` +
-          `Operating Power Level: ${curPower.label} (${curPower.instruction}). ` +
-          'You have real tools: run_command, write_file, read_file, list_directory. ' +
-          `When the user asks you to create, modify, inspect files, or perform ANY action on their ${osLabel} (e.g. creating files, running scripts/shell commands): ` +
-          'YOU MUST EXECUTE YOUR TOOLS TO ACTUALLY PERFORM THE ACTION ON THE COMPUTER. ' +
-          'NEVER refuse by saying you lack access. You HAVE full access through your tools. ' +
-          'If the user invokes /plan, generate an exhaustive architectural plan and design document, creating any needed files on disk. ' +
-          'Always respond clearly in Russian.';
+        const systemInstruction = t('systemInstruction', osLabel, curPower);
 
         curTab.history.push({ role: 'user', content: userPrompt });
         if (curTab.history.length > 30) curTab.history = curTab.history.slice(-30);
@@ -2612,13 +2891,17 @@ async function runChat(options = {}) {
 
               // In Request Review mode, ask approval before executing
               if (currentAccessMode === 'review') {
-                const promptMsg = `\n  ${OC.peach}🛡️ [Review Request]${OC.reset} ${OC.bold}${actionDisplay}${OC.reset} ${OC.textDim}${detailDisplay}${OC.reset}\n  ${OC.barCyan}Execute this command? [Y/n]: ${OC.reset}`;
+                const promptMsg = currentLanguage === 'en'
+                  ? `\n  ${OC.peach}🛡️ [Review Request]${OC.reset} ${OC.bold}${actionDisplay}${OC.reset} ${OC.textDim}${detailDisplay}${OC.reset}\n  ${OC.barCyan}Execute this command? [Y/n]: ${OC.reset}`
+                  : `\n  ${OC.peach}🛡️ [Запрос подтверждения]${OC.reset} ${OC.bold}${actionDisplay}${OC.reset} ${OC.textDim}${detailDisplay}${OC.reset}\n  ${OC.barCyan}Выполнить эту команду? [Y/n]: ${OC.reset}`;
                 const approved = await askReviewApproval(promptMsg);
                 if (!approved) {
                   messages.push({
                     role: 'tool',
                     tool_call_id: tc.id,
-                    content: 'Command was declined by user in Request Review mode.',
+                    content: currentLanguage === 'en'
+                      ? 'Command was declined by user in Request Review mode.'
+                      : 'Команда была отклонена пользователем в режиме Request Review.',
                   });
                   continue;
                 }
