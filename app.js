@@ -1269,22 +1269,37 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
     }
   }
 
+  const curTab = tabs[activeTabIdx] || tabs[0] || {};
+  if (typeof curTab.scrollOffset !== 'number') curTab.scrollOffset = 0;
+
   // Strict height calculation: measure physical wrapped rows so total lines NEVER exceed terminal rows!
-  // Reserved:
-  // Row 1: Tab bar
-  // Row 2: Empty line
-  // Row rows - 2: Bottom status & shortcuts
-  // Row rows - 1: Prompt line
   const maxChatHeight = Math.max(3, rows - 7);
+  const lineHeights = chatLines.map(line => Math.max(1, Math.ceil(stripAnsi(line).length / (cols - 2))));
+
+  // Find firstEnd where lines 0..firstEnd fill maxChatHeight from the top
+  let hAcc = 0;
+  let firstEnd = chatLines.length - 1;
+  for (let i = 0; i < chatLines.length; i++) {
+    hAcc += lineHeights[i];
+    if (hAcc >= maxChatHeight) { firstEnd = i; break; }
+  }
+  const maxScroll = Math.max(0, (chatLines.length - 1) - firstEnd);
+  curTab.maxScroll = maxScroll;
+
+  // Clamp current scroll offset
+  const scrollOffset = Math.max(0, Math.min(maxScroll, curTab.scrollOffset));
+  curTab.scrollOffset = scrollOffset;
+
+  // Collect visible lines backwards from endIdx (shifted upwards by scrollOffset lines)
+  const endIdx = (chatLines.length - 1) - scrollOffset;
   const visibleLines = [];
   let currentHeight = 0;
-  for (let i = chatLines.length - 1; i >= 0; i--) {
-    const line = chatLines[i];
-    const rawLen = stripAnsi(line).length;
-    const lineRows = Math.max(1, Math.ceil(rawLen / (cols - 2)));
-    if (currentHeight + lineRows > maxChatHeight) break;
-    visibleLines.unshift(line);
-    currentHeight += lineRows;
+
+  for (let i = endIdx; i >= 0; i--) {
+    const lh = lineHeights[i];
+    if (currentHeight + lh > maxChatHeight && visibleLines.length > 0) break;
+    visibleLines.unshift(chatLines[i]);
+    currentHeight += lh;
   }
 
   // 1. Tab bar at top (Row 1 - ALWAYS PINNED, NEVER SCROLLS OFF)
@@ -1295,13 +1310,25 @@ function renderOpenCodeChat(tabs, activeTabIdx, history, currentModel, currentPo
   for (const line of visibleLines) {
     console.log(line);
   }
+  const padRows = maxChatHeight - currentHeight;
+  for (let r = 0; r < padRows; r++) {
+    console.log('');
+  }
 
   // 3. Separated bottom card status & shortcuts line immediately above prompt
   const shortCwd = cwd ? (cwd.length > 36 ? '...' + cwd.slice(-33) : cwd) : '~';
   const modeBadge = currentAccessMode === 'review'
     ? OC.peach + '🛡️ Review' + OC.reset
     : OC.green + '⚡ Turbo' + OC.reset;
-  const rightInfo = OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.reset +
+
+  let scrollIndicator = '';
+  if (scrollOffset > 0) {
+    scrollIndicator = `${OC.peach}▲ [Скролл +${scrollOffset} из ${maxScroll} · PgUp/PgDn/Колёсико · Esc вниз]${OC.reset}  `;
+  } else if (maxScroll > 0) {
+    scrollIndicator = `${OC.textDim}↑ [PgUp/Колёсико — скролл вверх]${OC.reset}  `;
+  }
+
+  const rightInfo = scrollIndicator + OC.barCyan + currentModel + ' ' + OC.peach + currentPower + OC.reset +
     ' · ' + modeBadge + OC.textDim + '   shift+tab model   ctrl+p commands';
   const rightVisLen = stripAnsi(rightInfo).length;
   const midSpace = ' '.repeat(Math.max(2, cols - shortCwd.length - rightVisLen - 2));
@@ -1560,6 +1587,7 @@ async function runChat(options = {}) {
   let tabs = [{
     id: 1, title: 'New session',
     model: currentModel, powerIdx: currentPowerIdx, history: [],
+    scrollOffset: 0,
   }];
   let activeTabIdx = 0;
   const getActiveTab = () => tabs[activeTabIdx] || tabs[0];
@@ -1641,8 +1669,19 @@ async function runChat(options = {}) {
     tabs.push({
       id: nextId, title: tabTitle,
       model: currentModel, powerIdx: currentPowerIdx, history: [],
+      scrollOffset: 0,
     });
     activeTabIdx = tabs.length - 1;
+    refreshCurrentView();
+  };
+
+  const scrollChat = (deltaLines) => {
+    const curTab = getActiveTab();
+    if (!curTab || curTab.history.length === 0) return;
+    if (typeof curTab.scrollOffset !== 'number') curTab.scrollOffset = 0;
+    const maxScroll = typeof curTab.maxScroll === 'number' ? curTab.maxScroll : 9999;
+    const nextOffset = curTab.scrollOffset + deltaLines;
+    curTab.scrollOffset = Math.max(0, Math.min(maxScroll, nextOffset));
     refreshCurrentView();
   };
 
@@ -1662,11 +1701,17 @@ async function runChat(options = {}) {
     refreshCurrentView();
   };
 
-  // ── Global Mouse Tracker and Stream Interceptor ──
+  // ── Global Mouse Tracker, Resize Handler & Stream Interceptor ──
+  const onResize = () => {
+    refreshCurrentView();
+  };
+  process.stdout.on('resize', onResize);
+
   const cleanupMouse = () => {
     if (isTTY) {
       try { process.stdout.write('\x1b[?1000l\x1b[?1006l'); } catch {}
     }
+    try { process.stdout.removeListener('resize', onResize); } catch {}
   };
   process.on('exit', cleanupMouse);
 
@@ -1704,6 +1749,35 @@ async function runChat(options = {}) {
                 }
               }
             }
+          }
+        } else if (button === 64) {
+          // Mouse Wheel UP → Scroll up into chat history
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
+            scrollChat(3);
+          } else if (isPaletteOpen) {
+            paletteIndex = Math.max(0, paletteIndex - 1);
+            renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+          } else if (isAccessModalOpen) {
+            accessModalIndex = (accessModalIndex - 1 + 2) % 2;
+            renderAccessModeModal(accessModalIndex);
+          } else if (isThemeModalOpen) {
+            themeModalIndex = (themeModalIndex - 1 + Object.keys(THEMES).length) % Object.keys(THEMES).length;
+            renderThemeModal(themeModalIndex);
+          }
+        } else if (button === 65) {
+          // Mouse Wheel DOWN → Scroll down towards latest messages
+          if (!isPaletteOpen && !isAccessModalOpen && !isThemeModalOpen) {
+            scrollChat(-3);
+          } else if (isPaletteOpen) {
+            const count = getFilteredPaletteItems(paletteQuery).length;
+            if (count > 0) paletteIndex = Math.min(count - 1, paletteIndex + 1);
+            renderCommandPalette(paletteQuery, paletteIndex, tabs, activeTabIdx, currentModel, POWER_MODES[currentPowerIdx].label);
+          } else if (isAccessModalOpen) {
+            accessModalIndex = (accessModalIndex + 1) % 2;
+            renderAccessModeModal(accessModalIndex);
+          } else if (isThemeModalOpen) {
+            themeModalIndex = (themeModalIndex + 1) % Object.keys(THEMES).length;
+            renderThemeModal(themeModalIndex);
           }
         }
       }
@@ -1758,20 +1832,13 @@ async function runChat(options = {}) {
         themeModalIndex = Math.max(0, Object.keys(THEMES).indexOf(currentThemeId));
         renderThemeModal(themeModalIndex);
         return;
-      case 'view_history':
+      case 'view_history': {
+        const curTab = getActiveTab();
+        curTab.scrollOffset = curTab.maxScroll || 9999;
         refreshCurrentView();
-        console.log(`\n${OC.bold}${OC.textWhite}─── Full Session History (${getActiveTab().title}) ───${OC.reset}\n`);
-        for (const m of getActiveTab().history) {
-          if (m.role === 'user') {
-            console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + m.content + OC.reset + '\n');
-          } else {
-            console.log('  ' + OC.textDim + '+ Thought · ' + (m.thought || '2s') + OC.reset);
-            for (const b of renderMarkdownBlocks(m.content, 90)) console.log(b);
-            console.log('');
-          }
-        }
         safePrompt();
         return;
+      }
       case 'switch_model':
         cycleModel();
         break;
@@ -2066,6 +2133,57 @@ async function runChat(options = {}) {
       if (idx < tabs.length) { switchTab(idx); return; }
     }
 
+    // PageUp / PageDown → Scroll chat history
+    if (key && key.name === 'pageup') {
+      scrollChat(Math.max(5, (process.stdout.rows || 30) - 8));
+      return;
+    }
+    if (key && key.name === 'pagedown') {
+      scrollChat(-Math.max(5, (process.stdout.rows || 30) - 8));
+      return;
+    }
+
+    // Ctrl+Up / Ctrl+Down (or Shift+Up / Shift+Down) → Scroll chat history
+    if ((key && key.ctrl && key.name === 'up') || (key && key.shift && key.name === 'up')) {
+      scrollChat(3);
+      return;
+    }
+    if ((key && key.ctrl && key.name === 'down') || (key && key.shift && key.name === 'down')) {
+      scrollChat(-3);
+      return;
+    }
+
+    // Ctrl+Home / Ctrl+End → Jump to start / end of chat
+    if (key && key.ctrl && key.name === 'home') {
+      const curTab = getActiveTab();
+      if (curTab) { curTab.scrollOffset = curTab.maxScroll || 9999; refreshCurrentView(); }
+      return;
+    }
+    if (key && key.ctrl && key.name === 'end') {
+      const curTab = getActiveTab();
+      if (curTab) { curTab.scrollOffset = 0; refreshCurrentView(); }
+      return;
+    }
+
+    // Esc → If scrolled up, return to bottom
+    if (key && key.name === 'escape') {
+      const curTab = getActiveTab();
+      if (curTab && curTab.scrollOffset > 0) {
+        curTab.scrollOffset = 0;
+        refreshCurrentView();
+        return;
+      }
+    }
+
+    // When scrolled up and input line is empty, Down arrow scrolls down
+    if (rl.line === '' && key && key.name === 'down') {
+      const curTab = getActiveTab();
+      if (curTab && curTab.scrollOffset > 0) {
+        scrollChat(-2);
+        return;
+      }
+    }
+
     return origTTYWrite(s, key);
   };
 
@@ -2073,6 +2191,7 @@ async function runChat(options = {}) {
 
   return new Promise((resolve) => {
     rl.on('line', async (line) => {
+      getActiveTab().scrollOffset = 0;
       const input = line.trim();
       if (!input) { safePrompt(); return; }
 
@@ -2091,7 +2210,9 @@ async function runChat(options = {}) {
               console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Командная палитра (OpenCode Command Palette)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Режим доступа (Request Review / Turbo)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Смена темы интерфейса (Цвета / Crimson / Cyber)${C.reset}`);
-              console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Вставка текста из буфера обмена Windows${C.reset}`);
+              console.log(`  ${C.cyan}PgUp / PgDn${C.reset}     ${C.dimText}— Прокрутка длинных ответов и истории (или колёсико мыши)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+Up / Down${C.reset}  ${C.dimText}— Плавный скролл чата вверх/вниз (Esc — возврат вниз)${C.reset}`);
+              console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Вставка текста из буфера обмена${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— Создать новую сессию (или /new / +)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Закрыть текущую сессию (или /close)${C.reset}`);
               console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Переключение между сессиями (или /tab)${C.reset}`);
@@ -2359,17 +2480,9 @@ async function runChat(options = {}) {
             }
 
             case '/history': {
+              const curTab = getActiveTab();
+              curTab.scrollOffset = curTab.maxScroll || 9999;
               refreshCurrentView();
-              console.log(`\n${OC.bold}${OC.textWhite}─── Full Session History (${getActiveTab().title}) ───${OC.reset}\n`);
-              for (const m of getActiveTab().history) {
-                if (m.role === 'user') {
-                  console.log(' ' + OC.bgCard + ' ' + BAR + ' ' + OC.textWhite + m.content + OC.reset + '\n');
-                } else {
-                  console.log('  ' + OC.textDim + '+ Thought · ' + (m.thought || '2s') + OC.reset);
-                  for (const b of renderMarkdownBlocks(m.content, 90)) console.log(b);
-                  console.log('');
-                }
-              }
               safePrompt();
               return;
             }
