@@ -1,8 +1,45 @@
+# Dependencies
 node_modules/
+
+# Build outputs & Binaries
 dist/
+build/
+artifacts/
 *.blob
+*.exe
+*.bin
+*.tar.gz
+*.zip
+
+# Logs, Cache & Temporary files
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.cache/
+*.tmp
+*.temp
+
+# Secrets, Tokens & Private Credentials (Security Protection)
+*.key
+*.pem
+*.env
+*.env.*
+*.credentials*
+*credentials*
+*keys.json
+*tokens.json
+.dsh-launcher/
+.dsh/
+.tokify-settings.json
+.frost-cli-settings.json
+
+# Scratch & Tests
+test_*.js
+scratch/
+
+# OS artifacts
 .DS_Store
 Thumbs.db
-test_*.js
-*.tmp
+desktop.ini
