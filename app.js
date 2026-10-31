@@ -1355,7 +1355,8 @@ async function playStartupAnimation() {
     await sleep(22);
   }
 
-  await sleep(100);
+  await sleep(60);
+  if (isTTY) process.stdout.write('\x1b[H\x1b[2J\x1b[3J');
 }
 
 // ── Render: OpenCode Home Screen ──
@@ -1380,7 +1381,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   const subText = `${OC.peach}/help${OC.textDim} for commands · ${OC.peach}/lang${OC.textDim} language · v${VERSION}${OC.reset}`;
   const subRawLen = 38;
   const subPad = ' '.repeat(Math.max(1, Math.floor((cols - subRawLen) / 2)));
-  frame += '\n' + subPad + subText + '\x1b[K\n\n';
+  frame += '\x1b[K\n' + subPad + subText + '\x1b[K\n\x1b[K\n';
 
   // 4. Elevated card (Line 2: Model & Status Bar)
   const cardPad = ' '.repeat(Math.max(1, Math.floor((cols - cardW) / 2)));
@@ -1393,11 +1394,12 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
     OC.peach + currentPower + OC.bgCard + l2pad + ' ' + OC.reset + '\x1b[K\n';
 
   // 5. Path and shortcuts line (clean, short, never wraps!)
-  const maxCwd = Math.max(20, Math.floor(cardW * 0.4));
-  const shortCwd = cwd.length > maxCwd ? '...' + cwd.slice(-maxCwd + 3) : cwd;
   const keysHint = OC.textMuted + 'shift+tab' + OC.textDim + ' model   ' +
                    OC.textMuted + 'ctrl+p' + OC.textDim + ' commands';
-  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - 28));
+  const keysHintLen = stripAnsi(keysHint).length;
+  const maxCwd = Math.max(16, Math.min(Math.floor(cardW * 0.4), cardW - keysHintLen - 6));
+  const shortCwd = cwd.length > maxCwd ? '...' + cwd.slice(-maxCwd + 3) : cwd;
+  const midSpace = ' '.repeat(Math.max(2, cardW - shortCwd.length - keysHintLen - 3));
   frame += cardPad + ' ' + OC.textDim + shortCwd + midSpace + keysHint + OC.reset + '\x1b[K\n';
   frame += '\x1b[K\n';
 
