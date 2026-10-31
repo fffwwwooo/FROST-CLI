@@ -617,16 +617,74 @@ const SYSTEM_TOOLS = [
   },
 ];
 
+function decodeCP866(buf) {
+  if (!buf) return '';
+  if (typeof buf === 'string') buf = Buffer.from(buf, 'binary');
+  let str = '';
+  for (let i = 0; i < buf.length; i++) {
+    const b = buf[i];
+    if (b < 0x80) {
+      str += String.fromCharCode(b);
+    } else if (b >= 0x80 && b <= 0xAF) {
+      str += String.fromCharCode(0x0410 + (b - 0x80)); // А-п
+    } else if (b >= 0xE0 && b <= 0xEF) {
+      str += String.fromCharCode(0x0440 + (b - 0xE0)); // р-я
+    } else if (b === 0xF0) {
+      str += 'Ё';
+    } else if (b === 0xF1) {
+      str += 'ё';
+    } else {
+      str += String.fromCharCode(b);
+    }
+  }
+  return str;
+}
+
+function cleanCLIXML(raw) {
+  if (!raw || !raw.includes('#< CLIXML')) return raw;
+  const matches = raw.match(/<S S="Error">(.*?)<\/S>/gs);
+  if (matches) {
+    return matches
+      .map(m => m.replace(/<\/?S[^>]*>/g, '').replace(/_x000D__x000A_/g, '\n').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
+      .join('');
+  }
+  return raw.replace(/<[^>]+>/g, '').replace(/_x000D__x000A_/g, '\n');
+}
+
 function executeSystemTool(name, args) {
   if (name === 'run_powershell') {
     try {
-      const cmd = args.command;
-      const res = execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${cmd.replace(/"/g, '\\"')}"`, {
-        encoding: 'utf8', timeout: 60000, windowsHide: true,
+      const cmd = args.command || '';
+      const fullScript = `
+$ProgressPreference = 'SilentlyContinue';
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
+$OutputEncoding = [System.Text.Encoding]::UTF8;
+try {
+  & {
+${cmd}
+  } 2>&1 | Out-String
+} catch {
+  $_ | Out-String
+}
+`;
+      const b64 = Buffer.from(fullScript, 'utf16le').toString('base64');
+      const res = execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${b64}`, {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 60000,
       });
-      return res || '(command completed successfully with no output)';
+      return res.trim() || '(command completed successfully with no output)';
     } catch (e) {
-      return `PowerShell Error: ${e.message}\nSTDOUT: ${e.stdout || ''}\nSTDERR: ${e.stderr || ''}`;
+      let errText = '';
+      if (e.stderr && e.stderr.length > 0) {
+        errText = cleanCLIXML(decodeCP866(e.stderr));
+      } else if (e.stdout && e.stdout.length > 0) {
+        errText = e.stdout.toString('utf8');
+      } else {
+        errText = e.message;
+      }
+      return `PowerShell Error:\n${errText.trim()}`;
     }
   }
 
@@ -636,8 +694,13 @@ function executeSystemTool(name, args) {
       if (targetPath.startsWith('~')) targetPath = path.join(HOME, targetPath.slice(1));
       targetPath = path.resolve(targetPath);
       ensureDir(path.dirname(targetPath));
-      fs.writeFileSync(targetPath, args.content, 'utf8');
-      return `File written successfully to ${targetPath} (${args.content.length} characters)`;
+      let content = args.content || '';
+      // Prepend UTF-8 BOM on Windows for .ps1 files so PowerShell 5.1 parses Cyrillic/Unicode cleanly
+      if (targetPath.endsWith('.ps1') && !content.startsWith('\uFEFF')) {
+        content = '\uFEFF' + content;
+      }
+      fs.writeFileSync(targetPath, content, 'utf8');
+      return `File written successfully to ${targetPath} (${content.length} characters)`;
     } catch (e) {
       return `Write File Error: ${e.message}`;
     }
@@ -649,7 +712,8 @@ function executeSystemTool(name, args) {
       if (targetPath.startsWith('~')) targetPath = path.join(HOME, targetPath.slice(1));
       targetPath = path.resolve(targetPath);
       if (!fs.existsSync(targetPath)) return `Error: File not found at ${targetPath}`;
-      const content = fs.readFileSync(targetPath, 'utf8');
+      let content = fs.readFileSync(targetPath, 'utf8');
+      if (content.startsWith('\uFEFF')) content = content.slice(1);
       return content.length > 50000 ? content.slice(0, 50000) + '\n[...truncated]' : content;
     } catch (e) {
       return `Read File Error: ${e.message}`;
@@ -970,6 +1034,62 @@ function renderTabBar(tabs, activeTabIdx) {
   tabLine += OC.bgTabActive + OC.peach + OC.bold + plusSeg + OC.reset;
   plusZone = { startX: plusStart, endX: plusStart + plusSeg.length + 4 };
   return tabLine;
+}
+
+// ── Smooth Cinematic Intro Animation on Startup ──
+async function playStartupAnimation() {
+  if (!isTTY) return;
+  const cols = Math.min(process.stdout.columns || 90, 100);
+  const rows = process.stdout.rows || 25;
+  const rawLogoW = FROST_LOGO[0].length;
+  const logoPad = ' '.repeat(Math.max(2, Math.floor((cols - rawLogoW) / 2)));
+  const topPad = Math.max(1, Math.floor(rows * 0.12));
+
+  // 24 frames at ~22ms ≈ 520ms total
+  const totalFrames = 24;
+  for (let f = 0; f <= totalFrames; f++) {
+    const sweepX = (f / totalFrames) * (rawLogoW + 14) - 7;
+    let out = '\x1b[H\x1b[J';
+    for (let i = 0; i < topPad; i++) out += '\n';
+
+    for (const line of FROST_LOGO) {
+      out += logoPad;
+      for (let c = 0; c < line.length; c++) {
+        const ch = line[c];
+        if (ch === ' ') { out += ' '; continue; }
+        const dist = Math.abs(c - sweepX);
+        if (dist < 2) {
+          out += OC.textWhite + ch + OC.reset; // Radiant peak
+        } else if (dist < 5) {
+          out += OC.barCyan + ch + OC.reset; // Cyan glow
+        } else if (dist < 8) {
+          out += OC.accentBlue + ch + OC.reset; // Deep blue
+        } else if (c < sweepX) {
+          // Settled state (sleek gradient)
+          const t = c / line.length;
+          const v = Math.round(180 + t * 65);
+          out += rgb(v, v, Math.min(255, v + 12)) + ch + OC.reset;
+        } else {
+          // Unignited state
+          out += rgb(42, 46, 56) + ch + OC.reset;
+        }
+      }
+      out += '\n';
+    }
+
+    const pct = Math.min(100, Math.round((f / totalFrames) * 100));
+    const barWidth = 24;
+    const filled = Math.round((pct / 100) * barWidth);
+    const beam = OC.barCyan + '█'.repeat(filled) + rgb(45, 50, 60) + '·'.repeat(barWidth - filled) + OC.reset;
+    const subText = `${OC.textDim}INITIALIZING FROST KERNEL 2.0...${OC.reset}  [${beam}] ${OC.barCyan}${pct}%${OC.reset}`;
+    const subPad = ' '.repeat(Math.max(2, Math.floor((cols - 56) / 2)));
+    out += '\n' + subPad + subText + '\n';
+
+    process.stdout.write(out);
+    await sleep(22);
+  }
+
+  await sleep(100);
 }
 
 // ── Render: OpenCode Home Screen ──
@@ -1362,6 +1482,9 @@ async function runChat(options = {}) {
 
   // ── Show Home Screen ──
   const cwd = process.cwd().replace(/\\/g, '/');
+  if (isTTY && !options.noAnimation) {
+    await playStartupAnimation();
+  }
   renderOpenCodeHome(currentModel, POWER_MODES[currentPowerIdx].label, cwd, tabs, activeTabIdx);
 
   if (isTTY) {
