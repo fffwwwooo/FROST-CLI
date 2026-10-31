@@ -12,7 +12,7 @@
     "chat": "node app.js chat",
     "build": "node build.js"
   },
-  "author": "tokify. (fffwwwoo)",
+  "author": "tokify. (fffwwwooo)",
   "license": "MIT",
   "dependencies": {
     "boxen": "^5.1.2",

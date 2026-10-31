@@ -109,7 +109,7 @@
 ### Вариант 2. Запуск из исходного кода
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/fffwwwoo/FROST-CLI.git tokify
+git clone https://github.com/fffwwwooo/FROST-CLI.git tokify
 cd tokify
 
 # Установить зависимости
