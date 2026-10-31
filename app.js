@@ -14,7 +14,11 @@ const path     = require('path');
 const readline = require('readline');
 const { execSync, spawn } = require('child_process');
 
-if (process.platform === 'win32') {
+const IS_WIN   = process.platform === 'win32';
+const IS_MAC   = process.platform === 'darwin';
+const IS_LINUX = process.platform === 'linux';
+
+if (IS_WIN) {
   try { execSync('chcp 65001', { stdio: 'ignore' }); } catch {}
 }
 
@@ -198,12 +202,34 @@ loadUserSettings();
 // Clipboard helper for Ctrl+V
 function getClipboardText() {
   try {
-    return execSync('powershell.exe -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Clipboard"', {
-      timeout: 2000,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    }).replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+    if (IS_WIN) {
+      return execSync('powershell.exe -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Clipboard"', {
+        timeout: 2000,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      }).replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+    } else if (IS_MAC) {
+      return execSync('pbpaste', {
+        timeout: 2000,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+    } else {
+      // Linux: Try Wayland (wl-paste), then X11 (xclip), then xsel
+      try {
+        return execSync('wl-paste', { timeout: 1500, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          .replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+      } catch {
+        try {
+          return execSync('xclip -selection clipboard -o', { timeout: 1500, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+            .replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+        } catch {
+          return execSync('xsel --clipboard --output', { timeout: 1500, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+            .replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim();
+        }
+      }
+    }
   } catch {
     return '';
   }
@@ -530,13 +556,18 @@ async function ensureDshWebSilent() {
 
       if (dshBin && fs.existsSync(dshBin)) {
         const child = spawn(nodeExe, [dshBin, 'web', '--no-open'], {
+          detached: true, stdio: 'ignore', windowsHide: IS_WIN, shell: false,
+        });
+        child.unref();
+      } else if (IS_WIN) {
+        const psCmd = `Start-Process -FilePath 'cmd.exe' -ArgumentList '/c dsh web --no-open' -WindowStyle Hidden`;
+        const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCmd], {
           detached: true, stdio: 'ignore', windowsHide: true, shell: false,
         });
         child.unref();
       } else {
-        const psCmd = `Start-Process -FilePath 'cmd.exe' -ArgumentList '/c dsh web --no-open' -WindowStyle Hidden`;
-        const child = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCmd], {
-          detached: true, stdio: 'ignore', windowsHide: true, shell: false,
+        const child = spawn('dsh', ['web', '--no-open'], {
+          detached: true, stdio: 'ignore', shell: true,
         });
         child.unref();
       }
@@ -557,16 +588,34 @@ async function ensureDshWebSilent() {
 // ═══════════════════════════════════════════════════════════════════════
 // FULL PC ACCESS: SYSTEM AGENT TOOLS
 // ═══════════════════════════════════════════════════════════════════════
+const SHELL_DESC = IS_WIN
+  ? 'Execute any PowerShell command on the Windows PC. Has full system access to files, Desktop, apps, network, registry, processes, etc.'
+  : `Execute any bash/zsh shell command on the ${IS_MAC ? 'macOS' : 'Linux'} system. Has full system access to terminal, files, processes, network, etc.`;
+
 const SYSTEM_TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'run_powershell',
-      description: 'Execute any PowerShell command on the Windows PC. Has full system access to files, Desktop, apps, network, registry, processes, etc.',
+      name: 'run_command',
+      description: SHELL_DESC,
       parameters: {
         type: 'object',
         properties: {
-          command: { type: 'string', description: 'The exact PowerShell command line to execute on the system' },
+          command: { type: 'string', description: `The exact shell command line to execute (${IS_WIN ? 'PowerShell' : 'bash/zsh'})` },
+        },
+        required: ['command'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_powershell',
+      description: 'System command execution (PowerShell on Windows, bash/sh on Unix)',
+      parameters: {
+        type: 'object',
+        properties: {
+          command: { type: 'string', description: 'The command line to execute' },
         },
         required: ['command'],
       },
@@ -652,10 +701,11 @@ function cleanCLIXML(raw) {
 }
 
 function executeSystemTool(name, args) {
-  if (name === 'run_powershell') {
-    try {
-      const cmd = args.command || '';
-      const fullScript = `
+  if (name === 'run_powershell' || name === 'run_command' || name === 'run_shell') {
+    const cmd = args.command || '';
+    if (IS_WIN) {
+      try {
+        const fullScript = `
 $ProgressPreference = 'SilentlyContinue';
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
 $OutputEncoding = [System.Text.Encoding]::UTF8;
@@ -667,24 +717,49 @@ ${cmd}
   $_ | Out-String
 }
 `;
-      const b64 = Buffer.from(fullScript, 'utf16le').toString('base64');
-      const res = execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${b64}`, {
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 60000,
-      });
-      return res.trim() || '(command completed successfully with no output)';
-    } catch (e) {
-      let errText = '';
-      if (e.stderr && e.stderr.length > 0) {
-        errText = cleanCLIXML(decodeCP866(e.stderr));
-      } else if (e.stdout && e.stdout.length > 0) {
-        errText = e.stdout.toString('utf8');
-      } else {
-        errText = e.message;
+        const b64 = Buffer.from(fullScript, 'utf16le').toString('base64');
+        const res = execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${b64}`, {
+          encoding: 'utf8',
+          windowsHide: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: 60000,
+        });
+        return res.trim() || '(command completed successfully with no output)';
+      } catch (e) {
+        let errText = '';
+        if (e.stderr && e.stderr.length > 0) {
+          errText = cleanCLIXML(decodeCP866(e.stderr));
+        } else if (e.stdout && e.stdout.length > 0) {
+          errText = e.stdout.toString('utf8');
+        } else {
+          errText = e.message;
+        }
+        return `PowerShell Error:\n${errText.trim()}`;
       }
-      return `PowerShell Error:\n${errText.trim()}`;
+    } else {
+      // macOS / Linux: execute in default shell (bash/zsh/sh)
+      try {
+        const shell = process.env.SHELL || '/bin/bash';
+        const res = execSync(cmd, {
+          shell: shell,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: 60000,
+          cwd: process.cwd(),
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        return res.trim() || '(command completed successfully with no output)';
+      } catch (e) {
+        let errText = '';
+        if (e.stderr && e.stderr.length > 0) {
+          errText = e.stderr.toString('utf8');
+        } else if (e.stdout && e.stdout.length > 0) {
+          errText = e.stdout.toString('utf8');
+        } else {
+          errText = e.message;
+        }
+        return `Shell Error:\n${errText.trim()}`;
+      }
     }
   }
 
@@ -696,10 +771,13 @@ ${cmd}
       ensureDir(path.dirname(targetPath));
       let content = args.content || '';
       // Prepend UTF-8 BOM on Windows for .ps1 files so PowerShell 5.1 parses Cyrillic/Unicode cleanly
-      if (targetPath.endsWith('.ps1') && !content.startsWith('\uFEFF')) {
+      if (IS_WIN && targetPath.endsWith('.ps1') && !content.startsWith('\uFEFF')) {
         content = '\uFEFF' + content;
       }
       fs.writeFileSync(targetPath, content, 'utf8');
+      if (!IS_WIN && targetPath.endsWith('.sh')) {
+        try { fs.chmodSync(targetPath, 0o755); } catch {}
+      }
       return `File written successfully to ${targetPath} (${content.length} characters)`;
     } catch (e) {
       return `Write File Error: ${e.message}`;
@@ -1761,7 +1839,7 @@ async function runChat(options = {}) {
         console.log(`  ${C.cyan}Ctrl+P${C.reset}          ${C.dimText}— Open command palette${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+A / F4${C.reset}     ${C.dimText}— Access mode (Request Review / Turbo)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+K / F3${C.reset}     ${C.dimText}— Theme & UI colors${C.reset}`);
-        console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Paste from Windows clipboard${C.reset}`);
+        console.log(`  ${C.cyan}Ctrl+V${C.reset}          ${C.dimText}— Paste from system clipboard${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+T${C.reset}          ${C.dimText}— New session tab (or click +)${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+W${C.reset}          ${C.dimText}— Close current tab${C.reset}`);
         console.log(`  ${C.cyan}Ctrl+Right/Left${C.reset} ${C.dimText}— Switch between tabs${C.reset}`);
@@ -1900,7 +1978,7 @@ async function runChat(options = {}) {
       rl._refreshLine();
     }
 
-    // Ctrl+V → Paste from Windows system clipboard
+    // Ctrl+V → Paste from system clipboard
     if ((key && key.ctrl && key.name === 'v') || s === '\x16') {
       const text = getClipboardText();
       if (text) {
@@ -2342,11 +2420,12 @@ async function runChat(options = {}) {
 
         const curPower = POWER_MODES[curTab.powerIdx];
         const curMod = curTab.model;
+        const osLabel = IS_WIN ? 'Windows PC' : (IS_MAC ? 'macOS system' : 'Linux system');
         const systemInstruction =
-          'You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user Windows PC. ' +
+          `You are tokify. 2.0, an advanced autonomous AI coding and system engineer with FULL DIRECT ACCESS to the user's ${osLabel}. ` +
           `Operating Power Level: ${curPower.label} (${curPower.instruction}). ` +
-          'You have real tools: run_powershell, write_file, read_file, list_directory. ' +
-          'When the user asks you to create, modify, inspect files, or perform ANY action on their PC (e.g. creating files on Desktop, running scripts): ' +
+          'You have real tools: run_command, write_file, read_file, list_directory. ' +
+          `When the user asks you to create, modify, inspect files, or perform ANY action on their ${osLabel} (e.g. creating files, running scripts/shell commands): ` +
           'YOU MUST EXECUTE YOUR TOOLS TO ACTUALLY PERFORM THE ACTION ON THE COMPUTER. ' +
           'NEVER refuse by saying you lack access. You HAVE full access through your tools. ' +
           'If the user invokes /plan, generate an exhaustive architectural plan and design document, creating any needed files on disk. ' +
@@ -2407,8 +2486,8 @@ async function runChat(options = {}) {
 
               let actionDisplay = fnName;
               let detailDisplay = '';
-              if (fnName === 'run_powershell') {
-                actionDisplay = `Ran (${fnArgs.command?.slice(0, 75) || 'powershell'})`;
+              if (fnName === 'run_powershell' || fnName === 'run_command' || fnName === 'run_shell') {
+                actionDisplay = `Ran (${fnArgs.command?.slice(0, 75) || (IS_WIN ? 'powershell' : 'shell')})`;
               } else if (fnName === 'write_file') {
                 actionDisplay = `Created file (${path.basename(fnArgs.path || 'file')})`;
                 detailDisplay = `(${fnArgs.path})`;
@@ -2509,11 +2588,12 @@ function renderBanner(activeToken, webActive) {
     ? `${chalk.green('●')} ${chalk.bold(activeToken.name)} ${chalk.dim(`(${maskKey(activeToken.key)})`)}`
     : chalk.red('○ Не выбран');
 
+  const shellDesc = IS_WIN ? 'PowerShell, файлы, рабочий стол' : (IS_MAC ? 'Zsh/Bash, файлы, macOS' : 'Bash/Sh, файлы, Linux');
   console.log(boxen(
     `${chalk.cyan.bold('  tokify. · Autonomous Agent with Full PC Access  ')}\n\n` +
     `  ${chalk.dim('Активный токен:')} ${tokMark}\n` +
     `  ${chalk.dim('DSH Web статус:')} ${webMark}\n` +
-    `  ${chalk.dim('Доступ к ПК:')}    ${chalk.green('ПОЛНЫЙ ДОСТУП (PowerShell, файлы, рабочий стол)')}\n` +
+    `  ${chalk.dim('Доступ к ПК:')}    ${chalk.green(`ПОЛНЫЙ ДОСТУП (${shellDesc})`)}\n` +
     `  ${chalk.dim('Режим работы:')}   ${chalk.green('Одно окно (без всплывающих окон)')}`,
     { padding: 1, margin: { top: 1, bottom: 1, left: 1, right: 1 }, borderStyle: 'round', borderColor: 'cyan' }
   ));
@@ -2646,7 +2726,9 @@ async function menuLoop() {
           const setupFile = path.join(HOME, 'funpay-setup.cjs');
           if (!fs.existsSync(setupFile)) {
             const spin = ora('Скачиваю funpay-setup.cjs…').start();
-            execSync(`powershell -ExecutionPolicy Bypass -Command "irm https://tokify.sale/check/funpay-setup.cjs -OutFile '${setupFile}'"`, { stdio: 'ignore' });
+            const res = await fetch('https://tokify.sale/check/funpay-setup.cjs');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            fs.writeFileSync(setupFile, Buffer.from(await res.arrayBuffer()));
             spin.succeed('Скачано!');
           }
           execSync(`node "${setupFile}"`, { stdio: 'inherit' });

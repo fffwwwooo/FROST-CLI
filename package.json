@@ -1,8 +1,13 @@
 {
   "name": "tokify",
   "version": "2.0.0",
-  "description": "tokify. — Autonomous AI Agent with Deep Reasoning, Full PC Access & Multi-Chat Tabs",
+  "description": "tokify. — Autonomous AI Agent with Deep Reasoning, OpenCode TUI & Cross-Platform System Access",
   "main": "app.js",
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
   "bin": {
     "tokify": "./app.js",
     "tokify-cli": "./app.js"

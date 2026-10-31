@@ -13,10 +13,10 @@
 
 # <samp>tokify.</samp>
 
-**Autonomous AI Agent with Deep Reasoning, OpenCode TUI & Full PC Access**
+**Autonomous AI Agent with Deep Reasoning, OpenCode TUI & Cross-Platform System Access**
 
 [![Release](https://img.shields.io/badge/Release-v2.0.0-388bfd?style=flat-square&logo=github)](releases)
-[![Platform](https://img.shields.io/badge/Platform-Windows_11_%2F_10-0078D4?style=flat-square&logo=windows)](.)
+[![Platform](https://img.shields.io/badge/Platform-Windows_%7C_macOS_%7C_Linux-0078D4?style=flat-square)](.)
 [![UI Engine](https://img.shields.io/badge/UI-OpenCode_TUI-10b981?style=flat-square)](.)
 [![Reasoning](https://img.shields.io/badge/Reasoning-16K_Deep_Thinking-f0935b?style=flat-square)](.)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
@@ -27,9 +27,9 @@
 
 ## ⚡ О проекте
 
-**tokify.** — автономный терминальный AI-агент и консольный клиент с интерфейсом в стиле OpenCode, созданный для решения инженерных, системных и программных задач в среде Windows с глубоким пошаговым рассуждением (Chain-of-Thought).
+**tokify.** — автономный кроссплатформенный терминальный AI-агент и консольный клиент с интерфейсом в стиле OpenCode, созданный для решения инженерных, системных и программных задач в средах **Windows, macOS и Linux** с глубоким пошаговым рассуждением (Chain-of-Thought).
 
-В отличие от изолированных чат-ботов, **tokify.** работает непосредственно в вашей операционной системе: выполняет команды PowerShell, создаёт и модифицирует файлы, анализирует код и автоматизирует рутинные процессы в реальном времени.
+В отличие от изолированных чат-ботов, **tokify.** работает непосредственно в вашей операционной системе: выполняет команды терминала (PowerShell в Windows, Bash/Zsh в macOS и Linux), создаёт и модифицирует файлы, анализирует код и автоматизирует задачи в реальном времени.
 
 ---
 
@@ -41,9 +41,14 @@
   - Поддержка мыши: переключение сессий и клики по элементам интерфейса.
   - Сворачиваемые блоки мышления (`Thought for Xs...`) и интерактивный спиннер шагов выполнения.
 
+- 🌐 **Кроссплатформенный доступ (Windows / macOS / Linux)**:
+  - **Windows**: прямое выполнение команд через PowerShell с корректным декодированием CP866/UTF-8 и генерацией скриптов с UTF-8 BOM.
+  - **macOS & Linux**: выполнение системных команд напрямую в нативном шелле пользователя (`$SHELL`, `bash`, `zsh`), автоматический `chmod +x` для создаваемых `.sh` скриптов.
+  - **Буфер обмена**: универсальная вставка по <kbd>Ctrl</kbd> + <kbd>V</kbd> через `Get-Clipboard` (Windows), `pbpaste` (macOS), `wl-paste` / `xclip` / `xsel` (Linux).
+
 - 🛡️ **Режимы доступа к системе (Access Modes)**:
   - **Turbo** — автономное выполнение скриптов и файловых операций без ручных подтверждений.
-  - **Request Review** — режим повышенной безопасности с подтверждением каждой деструктивной команды.
+  - **Request Review** — режим повышенной безопасности с подтверждением каждой деструктивной команды перед запуском.
   - Быстрое переключение по <kbd>Ctrl</kbd> + <kbd>A</kbd> или через команду `/mode`.
 
 - 📑 **Многозадачные сессии (Pinned Tabs)**:
@@ -56,11 +61,9 @@
   - `Crimson Dark`, `Cyber Ice`, `Neon Emerald`, `Amber Gold`, `Deep Purple`, `Monokai Monochrome`.
   - Моментальное переключение по <kbd>Ctrl</kbd> + <kbd>K</kbd> или <kbd>F3</kbd> с автосохранением в настройках.
 
-- 📋 **Удобство и надежность**:
-  - Поддержка вставки из буфера обмена Windows по <kbd>Ctrl</kbd> + <kbd>V</kbd> (включая многострочные фрагменты кода).
-  - Корректная работа с кириллицей и русскоязычным выводом консоли (декодирование CP866/UTF-8, генерация `.ps1` с UTF-8 BOM, очистка потока CLIXML).
-  - Автономный бинарник `tokify.exe` с кастомной иконкой (не требует установки Node.js на целевой машине).
-  - Интеграция с фоновым сервисом DSH Web (:3080) и просмотр лимитов токенов прямо в чате.
+- 📦 **Автономные бинарники & запуск без зависимостей**:
+  - Сборка standalone-исполняемых файлов (Node.js Single Executable Application): `tokify.exe` для Windows, `tokify` для Linux и macOS.
+  - Интеграция с локальным сервисом DSH Web (:3080) и проверка баланса токенов.
 
 ---
 
@@ -72,7 +75,7 @@
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Переключение режима доступа (`Turbo` ↔ `Request Review`) |
 | <kbd>Ctrl</kbd> + <kbd>K</kbd> *(или F3)* | Переключение цветовой темы оформления |
 | <kbd>Shift</kbd> + <kbd>Tab</kbd> *(или F2)* | Смена AI-модели текущей сессии |
-| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Вставка текста / кода из буфера обмена Windows |
+| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Вставка текста / кода из системного буфера обмена |
 | <kbd>Ctrl</kbd> + <kbd>T</kbd> | Создать новую сессию |
 | <kbd>Ctrl</kbd> + <kbd>W</kbd> | Закрыть текущую сессию |
 | <kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>9</kbd> | Быстрый переход к сессии с номером 1-9 |
@@ -103,10 +106,13 @@
 
 ## 🚀 Установка и запуск
 
-### Вариант 1. Скачать готовый `.exe` (Рекомендуется)
-Скачайте последний релиз **`tokify.exe`** из раздела [Releases](releases) и запустите двойным кликом.
+### Вариант 1. Скачать готовый бинарник (Windows / Linux / macOS)
+Скачайте бинарник для вашей ОС из раздела [Releases](releases):
+- **Windows**: `tokify.exe`
+- **Linux**: `tokify-linux-x64` (`chmod +x tokify-linux-x64 && ./tokify-linux-x64`)
+- **macOS**: `tokify-macos-x64` (`chmod +x tokify-macos-x64 && ./tokify-macos-x64`)
 
-### Вариант 2. Запуск из исходного кода
+### Вариант 2. Запуск из исходного кода (Любая ОС)
 ```bash
 # Клонировать репозиторий
 git clone https://github.com/fffwwwooo/FROST-CLI.git tokify
@@ -115,15 +121,19 @@ cd tokify
 # Установить зависимости
 npm install
 
-# Запуск чата
+# Запуск чата напрямую
 node app.js chat
+
+# Либо связать глобально:
+npm link
+tokify chat
 ```
 
-### Сборка автономного исполняемого файла (.exe):
+### Сборка автономного исполняемого файла на вашей машине:
 ```bash
 node build.js
 ```
-Скрипт соберёт проект через `esbuild`, сформирует блоб Node.js SEA, внедрит нативную иконку и создаст переносимый `tokify.exe`.
+Скрипт автоматически определит текущую ОС (Windows / Linux / macOS), соберёт проект через `esbuild`, сформирует блоб Node.js SEA и создаст готовый бинарник в каталоге `dist/`.
 
 ---
 
