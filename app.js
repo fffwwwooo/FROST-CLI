@@ -52,7 +52,7 @@ const bgRgb = (r, g, b) => isTTY ? `\x1b[48;2;${r};${g};${b}m` : '';
 const THEMES = {
   cyber: {
     id: 'cyber',
-    name: 'Cyber Frost (Cyan & Ice)',
+    name: 'Cyber Ice (Cyan & Electric)',
     barCyan: rgb(56, 139, 253),
     accentBlue: rgb(56, 139, 253),
     secondary: rgb(121, 192, 255),
@@ -128,7 +128,6 @@ let currentThemeId = 'cyber';
 let currentAccessMode = 'turbo'; // 'turbo' | 'review'
 
 const SETTINGS_FILE = path.join(os.homedir(), '.tokify-settings.json');
-const LEGACY_SETTINGS_FILE = path.join(os.homedir(), '.frost-cli-settings.json');
 
 function saveUserSettings() {
   try {
@@ -186,9 +185,8 @@ function applyTheme(themeId, save = true) {
 
 function loadUserSettings() {
   try {
-    const target = fs.existsSync(SETTINGS_FILE) ? SETTINGS_FILE : (fs.existsSync(LEGACY_SETTINGS_FILE) ? LEGACY_SETTINGS_FILE : null);
-    if (target) {
-      const data = JSON.parse(fs.readFileSync(target, 'utf8'));
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
       if (data.theme && THEMES[data.theme]) applyTheme(data.theme, false);
       if (data.accessMode === 'review' || data.accessMode === 'turbo') currentAccessMode = data.accessMode;
     }
@@ -1117,7 +1115,7 @@ function renderOpenCodeHome(currentModel, currentPower, cwd, tabs = [{ title: 'N
   const subPad = ' '.repeat(Math.max(2, Math.floor((cols - subRawLen) / 2)));
   console.log('\n' + subPad + subText + '\n');
 
-  // 4. Elevated card (Line 2: Model & Status Bar - no FROST at end)
+  // 4. Elevated card (Line 2: Model & Status Bar)
   const cardPad = ' '.repeat(Math.max(2, Math.floor((cols - cardW) / 2)));
   const tagLine = `Autonomous · ${currentModel} ${currentPower}`;
   const l2pad = ' '.repeat(Math.max(1, cardW - 4 - tagLine.length));

@@ -5,16 +5,14 @@
   "main": "app.js",
   "bin": {
     "tokify": "./app.js",
-    "tokify-cli": "./app.js",
-    "frost": "./app.js",
-    "frost-cli": "./app.js"
+    "tokify-cli": "./app.js"
   },
   "scripts": {
     "start": "node app.js",
     "chat": "node app.js chat",
     "build": "node build.js"
   },
-  "author": "FROST (fffwwwoo)",
+  "author": "tokify. (fffwwwoo)",
   "license": "MIT",
   "dependencies": {
     "boxen": "^5.1.2",

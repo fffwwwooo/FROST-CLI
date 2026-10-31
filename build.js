@@ -10,10 +10,6 @@ const DESKTOP_DIR = path.join(require('os').homedir(), 'Desktop');
 
 const OUTPUT_TOKIFY_EXE   = path.join(DIST_DIR, 'tokify.exe');
 const DESKTOP_TOKIFY_EXE  = path.join(DESKTOP_DIR, 'tokify.exe');
-const OUTPUT_FROST_EXE     = path.join(DIST_DIR, 'FROST-CLI.exe');
-const DESKTOP_FROST_EXE    = path.join(DESKTOP_DIR, 'FROST-CLI.exe');
-const DESKTOP_ANTIGRAV_EXE = path.join(DESKTOP_DIR, 'Antigravity-CLI.exe');
-const DIST_ANTIGRAV_EXE    = path.join(DIST_DIR, 'Antigravity-CLI.exe');
 const ICON_PATH            = path.join(PROJECT_DIR, 'app_icon.ico');
 const RCEDIT_PATH          = path.join(PROJECT_DIR, 'node_modules', 'rcedit', 'bin', 'rcedit-x64.exe');
 
@@ -101,13 +97,9 @@ if (testOut.includes('tokify') || testOut.includes('Доступные кома�
 log('6/6 Copying to Desktop with new icon…');
 try {
   try {
-    execSync('powershell -Command "Stop-Process -Name tokify, FROST-CLI -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
+    execSync('powershell -Command "Stop-Process -Name tokify -Force -ErrorAction SilentlyContinue"', { stdio: 'ignore' });
   } catch {}
   fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_TOKIFY_EXE);
-  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_FROST_EXE);
-  fs.copyFileSync(OUTPUT_TOKIFY_EXE, OUTPUT_FROST_EXE);
-  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DESKTOP_ANTIGRAV_EXE);
-  fs.copyFileSync(OUTPUT_TOKIFY_EXE, DIST_ANTIGRAV_EXE);
   ok(`Copied standalone executable with custom icon to Desktop: ${DESKTOP_TOKIFY_EXE}`);
 } catch (e) {
   console.warn(`Could not copy to Desktop: ${e.message}`);
